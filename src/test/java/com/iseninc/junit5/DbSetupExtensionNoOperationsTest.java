@@ -1,6 +1,6 @@
 package com.iseninc.junit5;
 
-import com.iseninc.junit5.datasource.DbSetupExtension;
+import com.iseninc.junit5.datasource.DbSetupOperationExtension;
 import com.iseninc.junit5.datasource.DbSetupSourceFactory;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -12,7 +12,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 import static org.mockito.Answers.RETURNS_DEEP_STUBS;
 import static org.mockito.Mockito.mock;
 
-@ExtendWith(DbSetupExtension.class)
+@ExtendWith(DbSetupOperationExtension.class)
 class DbSetupExtensionNoOperationsTest {
     private static DataSource mockDataSource;
 
