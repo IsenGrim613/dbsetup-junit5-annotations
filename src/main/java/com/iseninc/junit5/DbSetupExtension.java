@@ -1,4 +1,4 @@
-package com.iseninc.junit5.datasource;
+package com.iseninc.junit5;
 
 import com.ninja_squad.dbsetup.DbSetup;
 import com.ninja_squad.dbsetup.destination.DataSourceDestination;

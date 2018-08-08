@@ -1,4 +1,4 @@
-package com.iseninc.junit5.datasource;
+package com.iseninc.junit5;
 
 import org.junit.jupiter.api.extension.ExtendWith;
 

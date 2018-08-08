@@ -1,9 +1,5 @@
 package com.iseninc.junit5;
 
-import com.iseninc.junit5.datasource.DbSetup;
-import com.iseninc.junit5.datasource.DbSetupOperation;
-import com.iseninc.junit5.datasource.DbSetupSkip;
-import com.iseninc.junit5.datasource.DbSetupSourceFactory;
 import com.ninja_squad.dbsetup.operation.Operation;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Nested;

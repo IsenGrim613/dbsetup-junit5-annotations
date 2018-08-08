@@ -1,6 +1,5 @@
 package com.iseninc.junit5;
 
-import com.iseninc.junit5.datasource.DbSetupOperationExtension;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 
