@@ -1,0 +1,7 @@
+CREATE TABLE IF NOT EXISTS My_Table (
+    primary_key INT NOT NULL AUTO_INCREMENT,
+    my_value VARCHAR(64) NOT NULL,
+    PRIMARY KEY (primary_key)
+)
+ENGINE=InnoDB
+ROW_FORMAT=DYNAMIC;
