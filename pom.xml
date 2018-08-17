@@ -5,10 +5,34 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>com.iseninc</groupId>
-    <artifactId>DbSetupAnnotations</artifactId>
+    <artifactId>junit5-dbsetup-annotations</artifactId>
     <version>1.0.0-SNAPSHOT</version>
 
+    <name>DbSetup Extension Annotations for JUnit5</name>
     <inceptionYear>2018</inceptionYear>
+
+    <description>
+        JUnit5 extension annotations for DbSetup
+    </description>
+
+    <url>https://github.com/IsenGrim613/dbsetup-junit5-annotations</url>
+
+    <issueManagement>
+        <system>github</system>
+        <url>https://github.com/IsenGrim613/dbsetup-junit5-annotations/issues</url>
+    </issueManagement>
+
+    <scm>
+        <connection>scm:git:https://github.com/IsenGrim613/dbsetup-junit5-annotations.git</connection>
+        <url>https://github.com/IsenGrim613/dbsetup-junit5-annotations</url>
+    </scm>
+
+    <developers>
+        <developer>
+            <name>Isen Ng</name>
+            <email>isengrim613@gmail.com</email>
+        </developer>
+    </developers>
 
     <licenses>
         <license>
