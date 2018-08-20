@@ -3,7 +3,6 @@ package com.iseninc.junit5;
 import com.ninja_squad.dbsetup.operation.Operation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
-import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.TestInstance;
 import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -80,51 +79,95 @@ class DbSetupExtensionTest {
     }
 
     @Nested
+    @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     class BeforeEachCallback {
-        @BeforeEach
-        void setup() throws Exception {
-            reset(MixedOperation.mockOperation1,
-                    MixedOperation.mockOperation2,
-                    MixedOperation.INSTANCE.mockOperation3,
-                    MixedOperation.INSTANCE.mockOperation4);
-
-            doReturn(MixedOperation.class).when(mockContext).getRequiredTestClass();
-            extension.postProcessTestInstance(MixedOperation.INSTANCE, mockContext);
-        }
-
-        @Test
-        void shouldNotRunSetupIfMethodHasSkipAnnotation() throws Exception {
+        @ParameterizedTest
+        @MethodSource("createValidCombinations")
+        void shouldNotRunSetupIfMethodHasSkipAnnotation(Class<?> clazz, Object instance, Runnable reset, Runnable verify, Runnable verifyNoExecutions) throws Exception {
             // arrange
+            reset.run();
+
+            doReturn(clazz).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(instance, mockContext);
+
             Method method = Methods.class.getMethod("skipDbSetup");
             doReturn(method).when(mockContext).getRequiredTestMethod();
+            doReturn(instance).when(mockContext).getRequiredTestInstance();
 
             // act
             extension.beforeEach(mockContext);
 
             // assert
-            verifyZeroInteractions(MixedOperation.mockOperation1,
-                    MixedOperation.mockOperation2,
-                    MixedOperation.INSTANCE.mockOperation3,
-                    MixedOperation.INSTANCE.mockOperation4);
+            verifyNoExecutions.run();
         }
 
-        @Test
-        void shouldRunSetupIfMethodDoesNotHaveSkipAnnotation() throws Exception {
+        @ParameterizedTest
+        @MethodSource("createValidCombinations")
+        void shouldRunSetupIfMethodDoesNotHaveSkipAnnotation(Class<?> clazz, Object instance, Runnable reset, Runnable verify) throws Exception {
             // arrange
+            reset.run();
+
+            doReturn(clazz).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(instance, mockContext);
+
             Method method = Methods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
-            doReturn(MixedOperation.INSTANCE).when(mockContext).getRequiredTestInstance();
+            doReturn(instance).when(mockContext).getRequiredTestInstance();
 
             // act
             extension.beforeEach(mockContext);
 
             // assert
-            verify(MixedOperation.mockDataSource).getConnection();
+            verify.run();
+        }
 
-            verify(MixedOperation.mockOperation1).execute(eq(MixedOperation.mockDataSource.getConnection()), any());
-            verify(MixedOperation.mockOperation2).execute(eq(MixedOperation.mockDataSource.getConnection()), any());
-            verify(MixedOperation.INSTANCE.mockOperation3).execute(eq(MixedOperation.mockDataSource.getConnection()), any());
-            verify(MixedOperation.INSTANCE.mockOperation4).execute(eq(MixedOperation.mockDataSource.getConnection()), any());
+        private Stream<Arguments> createValidCombinations() {
+            return Stream.of(
+                    createArguments(StaticMethodFactory.class),
+                    createArguments(StaticFieldFactory.class),
+                    createArguments(InstanceMethodFactory.class),
+                    createArguments(InstanceFieldFactory.class),
+                    createArguments(StaticMethodOperation.class),
+                    createArguments(StaticFieldOperation.class),
+                    createArguments(InstanceMethodOperation.class),
+                    createArguments(InstanceFieldOperation.class),
+                    createArguments(MixedOperation.class),
+                    Arguments.of(InnerOperations.InnerClass.class, InnerOperations.INNER_INSTANCE, (Runnable) InnerOperations::resetMocks, (Runnable) InnerOperations::verifyExecuted, (Runnable) InnerOperations::verifyNotExecuted));
+        }
+
+        private Arguments createArguments(Class<?> clazz) {
+            try {
+                Object instance = clazz.getDeclaredField("INSTANCE").get(null);
+                Runnable reset = () -> {
+                    try {
+                        clazz.getDeclaredMethod("resetMocks").invoke(null);
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+                Runnable verify = () -> {
+                    try {
+                        clazz.getDeclaredMethod("verifyExecuted").invoke(null);
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+                Runnable verifyNoExecutions = () -> {
+                    try {
+                        clazz.getDeclaredMethod("verifyNotExecuted").invoke(null);
+                    }
+                    catch (Exception e) {
+                        throw new RuntimeException(e);
+                    }
+                };
+
+                return Arguments.of(clazz, instance, reset, verify, verifyNoExecutions);
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 
@@ -163,7 +206,7 @@ class DbSetupExtensionTest {
     static class StaticMethodFactory {
         static final StaticMethodFactory INSTANCE = new StaticMethodFactory();
 
-        private static DataSource mockDataSource = mock(DataSource.class);
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupSourceFactory
         static DataSource getMockDataSource() {
@@ -172,22 +215,58 @@ class DbSetupExtensionTest {
 
         @DbSetupOperation
         private Operation mockOperation = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+                verify(INSTANCE.mockOperation).execute(eq(mockDataSource.getConnection()), any());;
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class StaticFieldFactory {
         static final StaticFieldFactory INSTANCE = new StaticFieldFactory();
 
         @DbSetupSourceFactory
-        private static DataSource mockDataSource = mock(DataSource.class);
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
         private Operation mockOperation = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+                verify(INSTANCE.mockOperation).execute(eq(mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class InstanceMethodFactory {
         static final InstanceMethodFactory INSTANCE = new InstanceMethodFactory();
 
-        private DataSource mockDataSource = mock(DataSource.class);
+        private DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupSourceFactory
         DataSource getMockDataSource() {
@@ -196,23 +275,59 @@ class DbSetupExtensionTest {
 
         @DbSetupOperation
         private Operation mockOperation = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(INSTANCE.mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(INSTANCE.mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(INSTANCE.mockDataSource).getConnection();;
+                verify(INSTANCE.mockOperation).execute(eq(INSTANCE.mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class InstanceFieldFactory {
         static final InstanceFieldFactory INSTANCE = new InstanceFieldFactory();
 
         @DbSetupSourceFactory
-        private DataSource mockDataSource = mock(DataSource.class);
+        private DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
         private Operation mockOperation = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(INSTANCE.mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(INSTANCE.mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(INSTANCE.mockDataSource).getConnection();
+                verify(INSTANCE.mockOperation).execute(eq(INSTANCE.mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class StaticMethodOperation {
         static final StaticMethodOperation INSTANCE = new StaticMethodOperation();
 
         @DbSetupSourceFactory
-        private static DataSource mockDataSource = mock(DataSource.class);
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         private static Operation mockOperation = mock(Operation.class);
 
@@ -220,23 +335,59 @@ class DbSetupExtensionTest {
         private static Operation getOperation() {
             return mockOperation;
         }
+
+        static void resetMocks() {
+            reset(mockDataSource, mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource, mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+                verify(mockOperation).execute(eq(mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class StaticFieldOperation {
         static final StaticFieldOperation INSTANCE = new StaticFieldOperation();
 
         @DbSetupSourceFactory
-        private static DataSource mockDataSource = mock(DataSource.class);
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
         private static Operation mockOperation = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(mockDataSource, mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource, mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+                verify(mockOperation).execute(eq(mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class InstanceMethodOperation {
         static final InstanceMethodOperation INSTANCE = new InstanceMethodOperation();
 
         @DbSetupSourceFactory
-        private static DataSource mockDataSource = mock(DataSource.class);
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         private Operation mockOperation = mock(Operation.class);
 
@@ -244,16 +395,54 @@ class DbSetupExtensionTest {
         private Operation getOperation() {
             return mockOperation;
         }
+
+        static void resetMocks() {
+            reset(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+                verify(INSTANCE.mockOperation).execute(eq(mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class InstanceFieldOperation {
         static final InstanceFieldOperation INSTANCE = new InstanceFieldOperation();
 
         @DbSetupSourceFactory
-        private static DataSource mockDataSource = mock(DataSource.class);
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
         private Operation mockOperation = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(mockDataSource,
+                    INSTANCE.mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource,
+                    INSTANCE.mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+                verify(INSTANCE.mockOperation).execute(eq(mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class MixedOperation {
@@ -281,20 +470,93 @@ class DbSetupExtensionTest {
         private Operation getOperation4() {
             return mockOperation4;
         }
+
+        static void resetMocks() {
+            reset(mockDataSource,
+                    mockOperation1,
+                    mockOperation2,
+                    INSTANCE.mockOperation3,
+                    INSTANCE.mockOperation4);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockOperation1,
+                    mockOperation2,
+                    INSTANCE.mockOperation3,
+                    INSTANCE.mockOperation4);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+
+                verify(mockOperation1).execute(eq(mockDataSource.getConnection()), any());
+                verify(mockOperation2).execute(eq(mockDataSource.getConnection()), any());
+                verify(INSTANCE.mockOperation3).execute(eq(mockDataSource.getConnection()), any());
+                verify(INSTANCE.mockOperation4).execute(eq(mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
     }
 
     static class InnerOperations {
         static final InnerOperations INSTANCE = new InnerOperations();
+        static final InnerOperations.InnerClass INNER_INSTANCE = INSTANCE.new InnerClass();
 
         @DbSetupSourceFactory
-        private static DataSource mockDataSource = mock(DataSource.class);
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
-        private Operation mockOperation = mock(Operation.class);
+        private static Operation mockOperation1 = mock(Operation.class);
+
+        private static Operation mockOperation2 = mock(Operation.class);
+
+        @DbSetupOperation
+        private static Operation getOperation2() {
+            return mockOperation2;
+        }
 
         class InnerClass {
             @DbSetupOperation
-            private Operation mockOperation = mock(Operation.class);
+            private Operation mockOperation3 = mock(Operation.class);
+
+            private Operation mockOperation4 = mock(Operation.class);
+
+            @DbSetupOperation
+            private Operation getOperation4() {
+                return mockOperation4;
+            }
+        }
+
+        static void resetMocks() {
+            reset(mockDataSource,
+                    mockOperation1,
+                    mockOperation2,
+                    INNER_INSTANCE.mockOperation3,
+                    INNER_INSTANCE.mockOperation4);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockOperation1,
+                    mockOperation2,
+                    INNER_INSTANCE.mockOperation3,
+                    INNER_INSTANCE.mockOperation4);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+
+                verify(mockOperation1).execute(eq(mockDataSource.getConnection()), any());
+                verify(mockOperation2).execute(eq(mockDataSource.getConnection()), any());
+                verify(INNER_INSTANCE.mockOperation3).execute(eq(mockDataSource.getConnection()), any());
+                verify(INNER_INSTANCE.mockOperation4).execute(eq(mockDataSource.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
         }
     }
 }
