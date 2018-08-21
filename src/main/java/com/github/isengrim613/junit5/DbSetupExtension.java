@@ -1,4 +1,4 @@
-package com.iseninc.junit5;
+package com.github.isengrim613.junit5;
 
 import com.ninja_squad.dbsetup.DbSetup;
 import com.ninja_squad.dbsetup.DbSetupTracker;

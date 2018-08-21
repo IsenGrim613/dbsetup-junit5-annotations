@@ -1,4 +1,4 @@
-package com.iseninc.junit5;
+package com.github.isengrim613.junit5;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

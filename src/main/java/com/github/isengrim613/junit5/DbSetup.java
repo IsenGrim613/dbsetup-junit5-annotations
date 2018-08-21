@@ -1,4 +1,6 @@
-package com.iseninc.junit5;
+package com.github.isengrim613.junit5;
+
+import org.junit.jupiter.api.extension.ExtendWith;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
@@ -6,6 +8,7 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 @Retention(RetentionPolicy.RUNTIME)
-@Target(ElementType.METHOD)
-public @interface DbSetupSkipNext {
+@Target({ ElementType.TYPE })
+@ExtendWith(DbSetupExtension.class)
+public @interface DbSetup {
 }
