@@ -11,31 +11,29 @@ import org.junit.platform.commons.util.ReflectionUtils;
 
 import javax.sql.DataSource;
 import java.lang.annotation.Annotation;
-import java.lang.reflect.AnnotatedElement;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.ninja_squad.dbsetup.Operations.sequenceOf;
-import static org.junit.platform.commons.util.AnnotationUtils.*;
+import static org.junit.platform.commons.support.AnnotationSupport.findAnnotation;
+import static org.junit.platform.commons.util.AnnotationUtils.findAnnotatedFields;
+import static org.junit.platform.commons.util.AnnotationUtils.isAnnotated;
 import static org.junit.platform.commons.util.ReflectionUtils.isStatic;
 import static org.junit.platform.commons.util.ReflectionUtils.makeAccessible;
 
 public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCallback {
     private static final Logger LOGGER = Logger.getLogger(DbSetupExtension.class.getName());
 
-    private AnnotatedElement dataSourceElement;
-    private List<AnnotatedElement> operationElements;
+    private Field dataSourceDestinationField;
+    private List<Field> operationFields;
 
     @Override
     public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws Exception {
-        dataSourceElement = findDataSourceElement(context);
-        operationElements = findOperationElements(context);
+        dataSourceDestinationField = findDataSourceField(context);
+        operationFields = findOperationFields(context);
     }
 
     @Override
@@ -47,10 +45,10 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         }
 
         Object testInstance = context.getRequiredTestInstance();
-        DataSource dataSource = invoke(dataSourceElement, testInstance);
+        DataSource dataSource = getFieldValue(dataSourceDestinationField, testInstance);
         List<Operation> operations = new ArrayList<>();
-        for (AnnotatedElement element : operationElements) {
-            operations.add(invoke(element, testInstance));
+        for (Field field : operationFields) {
+            operations.add(getFieldValue(field, testInstance));
         }
 
         DataSourceDestination dataSourceDestination = new DataSourceDestination(dataSource);
@@ -58,71 +56,45 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         dbSetup.launch();
     }
 
-    private static AnnotatedElement findDataSourceElement(ExtensionContext context) throws Exception {
+    private static Field findDataSourceField(ExtensionContext context) {
         Class<?> testClass = context.getRequiredTestClass();
-        List<AnnotatedElement> dbSetupSourceFactories = findAnnotatedElements(testClass, DbSetupSourceFactory.class);
+        List<Field> dbSetupSources = findAnnotatedFieldsInHierarchy(testClass, DbSetupSource.class);
 
-        if (dbSetupSourceFactories.size() <= 0) {
-            throw new IllegalStateException("No @DbSetupSourceFactory found");
-        }
-
-        if (dbSetupSourceFactories.size() > 1) {
-            throw new IllegalStateException("There can only be 1 @DbSetupSourceFactory");
+        if (dbSetupSources.size() <= 0) {
+            throw new IllegalStateException("No @DbSetupSource found");
         }
 
-        AnnotatedElement element = dbSetupSourceFactories.get(0);
-        if (element instanceof Method) {
-            Method method = (Method) element;
-            makeAccessible(method);
-            checkNoArgsMethod(method, DataSource.class, "@DbSetupSourceFactory");
-        }
-        else if (element instanceof Field) {
-            Field field = (Field) element;
-            makeAccessible(field);
-            checkField(field, DataSource.class, "@DbSetupSourceFactory");
-        }
-        else {
-            throw new IllegalStateException("@DbSetupOperation should not be annotated on a " + element.getClass());
+        if (dbSetupSources.size() > 1) {
+            throw new IllegalStateException("There can only be 1 @DbSetupSource");
         }
 
-        return element;
+        Field field = dbSetupSources.get(0);
+        makeAccessible(field);
+        checkField(field, DataSource.class, "@DbSetupSource");
+
+        return field;
     }
 
-    private static List<AnnotatedElement> findOperationElements(ExtensionContext context) throws Exception {
+    private static List<Field> findOperationFields(ExtensionContext context) {
         Class<?> testClass = context.getRequiredTestClass();
-        List<AnnotatedElement> dbSetupOperationElements = findAnnotatedElements(testClass, DbSetupOperation.class);
+        List<Field> dbSetupOperationElements = findAnnotatedFieldsInHierarchy(testClass, DbSetupOperation.class);
 
         if (dbSetupOperationElements.size() <= 0) {
             throw new IllegalStateException("No @DbSetupOperation found");
         }
 
-        for (AnnotatedElement element : dbSetupOperationElements) {
-            if (element instanceof Method) {
-                Method method = (Method) element;
-                makeAccessible(method);
-                checkNoArgsMethod(method, Operation.class, "@DbSetupOperation");
-            }
-            else if (element instanceof Field) {
-                Field field = (Field) element;
-                makeAccessible(field);
-                checkField(field, Operation.class, "@DbSetupOperation");
-            }
-            else {
-                throw new IllegalStateException("@DbSetupOperation should not be annotated on a " + element.getClass());
-            }
+        for (Field field : dbSetupOperationElements) {
+            makeAccessible(field);
+            checkField(field, Operation.class, "@DbSetupOperation");
         }
+
+        dbSetupOperationElements.sort((field1, field2) -> {
+            DbSetupOperation dbSetupOperation1 = field1.getAnnotation(DbSetupOperation.class);
+            DbSetupOperation dbSetupOperation2 = field2.getAnnotation(DbSetupOperation.class);
+            return Integer.compare(dbSetupOperation1.order(), dbSetupOperation2.order());
+        });
 
         return dbSetupOperationElements;
-    }
-
-    private static void checkNoArgsMethod(Method method, Class<?> returnType, String name) {
-        if (!returnType.isAssignableFrom(method.getReturnType())) {
-            throw new IllegalStateException(name + " should return an instance or subclass of " + returnType);
-        }
-
-        if (method.getParameterCount() > 0) {
-            throw new IllegalStateException(name + " should have 0 parameters");
-        }
     }
 
     private static void checkField(Field field, Class<?> returnType, String name) {
@@ -131,31 +103,8 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         }
     }
 
-    private static <T> T invoke(AnnotatedElement element, Object instance) throws Exception {
-        if (element instanceof Method) {
-            return invokeMethod((Method) element, instance);
-        }
-        else if (element instanceof Field) {
-            return getField((Field) element, instance);
-        }
-        else {
-            throw new IllegalStateException("Element type not supported: " + element.getClass());
-        }
-    }
-
     @SuppressWarnings("unchecked")
-    private static <T> T invokeMethod(Method method, Object instance) throws Exception {
-        if (isStatic(method)) {
-            return (T) method.invoke(null);
-        }
-        else {
-            instance = matchElementDeclaringClass(method.getDeclaringClass(), instance);
-            return (T) method.invoke(instance);
-        }
-    }
-
-    @SuppressWarnings("unchecked")
-    private static <T> T getField(Field field, Object instance) throws Exception {
+    private static <T> T getFieldValue(Field field, Object instance) throws Exception {
         if (isStatic(field)) {
             return (T) field.get(null);
         }
@@ -165,21 +114,20 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         }
     }
 
-    private static List<AnnotatedElement> findAnnotatedElements(Class<?> clazz, Class<? extends Annotation> annotationType) {
-        List<AnnotatedElement> elements = new ArrayList<>();
+    private static List<Field> findAnnotatedFieldsInHierarchy(Class<?> clazz, Class<? extends Annotation> annotationType) {
+        List<Field> fields = new ArrayList<>();
 
         if (clazz.getDeclaringClass() != null) {
-            elements.addAll(findAnnotatedElements(clazz.getDeclaringClass(), annotationType));
+            fields.addAll(findAnnotatedFieldsInHierarchy(clazz.getDeclaringClass(), annotationType));
         }
 
-        elements.addAll(findAnnotatedMethods(clazz, annotationType, ReflectionUtils.HierarchyTraversalMode.TOP_DOWN));
-        elements.addAll(findAnnotatedFields(clazz, annotationType, f -> true, ReflectionUtils.HierarchyTraversalMode.TOP_DOWN));
-
-        return elements;
+        fields.addAll(findAnnotatedFields(clazz, annotationType, f -> true, ReflectionUtils.HierarchyTraversalMode.TOP_DOWN));
+        return fields;
     }
 
     private static Object matchElementDeclaringClass(Class<?> elementDeclaringClass, Object instance) {
-        while (elementDeclaringClass != instance.getClass()) {
+        //while (elementDeclaringClass != instance.getClass()) {
+        while (!elementDeclaringClass.isAssignableFrom(instance.getClass())) {
             Optional<Object> outerOption = getOuterInstance(instance);
             if (!outerOption.isPresent()) {
                 throw new IllegalStateException("Cannot map outer instance to outer methods found");
@@ -194,7 +142,6 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
     private static Optional<Object> getOuterInstance(Object inner) {
         // This is risky since it depends on the name of the field which is nowhere guaranteed
         // but has been stable so far in all JDKs
-
         return Arrays.stream(inner.getClass().getDeclaredFields())
                 .filter(field -> field.getName().startsWith("this$"))
                 .findFirst()

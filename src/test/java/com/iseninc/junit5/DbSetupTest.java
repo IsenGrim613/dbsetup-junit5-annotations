@@ -5,7 +5,6 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.mockito.NotExtensible;
 
 import javax.sql.DataSource;
 import java.sql.Connection;
@@ -18,22 +17,23 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @DbSetup
 class DbSetupTest {
-    @DbSetupSourceFactory
+    @DbSetupSource
     private static final DataSource DATA_SOURCE;
 
     static {
         HikariConfig config = new HikariConfig();
-        config.setJdbcUrl("jdbc:h2:mem:TestAppService;MODE=MYSQL;IGNORECASE=TRUE;INIT=RUNSCRIPT FROM 'classpath:h2-database-create.sql'");
+        config.setJdbcUrl("jdbc:h2:mem:TestTable;TRACE_LEVEL_FILE=2;MODE=MYSQL;IGNORECASE=TRUE;INIT=RUNSCRIPT FROM 'classpath:h2-database-create.sql';");
         DATA_SOURCE = new HikariDataSource(config);
     }
 
-    @DbSetupOperation
-    Operation deleteAll() {
-        return deleteAllFrom("My_Table");
-    }
+    @DbSetupOperation(order = 1)
+    Operation deleteAll = deleteAllFrom("My_Table");
 
-    @DbSetupOperation
-    Operation insert = insertInto("My_Table").columns("primary_key", "my_value").values(1, "2").build();
+    @DbSetupOperation(order = 2)
+    Operation insert = insertInto("My_Table")
+            .columns("primary_key", "my_value")
+            .values(1, "2")
+            .build();
 
     @Test
     void shouldHave1RowAtStart() throws Exception {
@@ -54,7 +54,7 @@ class DbSetupTest {
 
     @Nested
     class Inner {
-        @DbSetupOperation
+        @DbSetupOperation(order = 3)
         Operation insert = insertInto("My_Table").columns("primary_key", "my_value").values(2, "3").build();
 
         @Test
