@@ -54,8 +54,8 @@ class DbSetupTest {
 
     @Nested
     class Inner {
-        @DbSetupOperation(order = 3)
-        Operation insert = insertInto("My_Table").columns("primary_key", "my_value").values(2, "3").build();
+        @DbSetupOperation
+        Operation insert3 = insertInto("My_Table").columns("primary_key", "my_value").values(2, "3").build();
 
         @Test
         void shouldHave2RowsAfter() throws Exception {

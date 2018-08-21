@@ -120,58 +120,114 @@ class DbSetupExtensionTest {
         }
 
         @Test
-        void shouldPreserveOrderOfOperationsDeclared() throws Exception {
+        void shouldPreserveOrderOfExplicitOrderedOperations() throws Exception {
             // arrange
-            OrderedOperations.resetMocks();
-
-            doReturn(OrderedOperations.InnerClass.class).when(mockContext).getRequiredTestClass();
-            extension.postProcessTestInstance(OrderedOperations.INNER_INSTANCE, mockContext);
+            doReturn(ExplicitOperations.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(ExplicitOperations.INSTANCE, mockContext);
 
             Method method = Methods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
-            doReturn(OrderedOperations.INNER_INSTANCE).when(mockContext).getRequiredTestInstance();
+            doReturn(ExplicitOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
+
+            AtomicReference<String> order = new AtomicReference<>("");
+
+            doAnswer(invocationOnMock -> {
+                order.accumulateAndGet("1", String::concat);
+                return null;
+            }).when(ExplicitOperations.mockOperationForDelete).execute(any(), any());
+
+            doAnswer(invocationOnMock -> {
+                order.accumulateAndGet("2", String::concat);
+                return null;
+            }).when(ExplicitOperations.mockOperationForInsert).execute(any(), any());
+
+            // act
+            extension.beforeEach(mockContext);
+
+            // assert
+            assertThat(order.get()).isEqualTo("12");
+        }
+
+        @Test
+        void shouldPreserveOrderOfImplicitOrderedOperations() throws Exception {
+            // arrange
+            doReturn(ImplicitOperations.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(ImplicitOperations.INSTANCE, mockContext);
+
+            Method method = Methods.class.getMethod("normalTest");
+            doReturn(method).when(mockContext).getRequiredTestMethod();
+            doReturn(ImplicitOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
+
+            AtomicReference<String> order = new AtomicReference<>("");
+
+            doAnswer(invocationOnMock -> {
+                order.accumulateAndGet("1", String::concat);
+                return null;
+            }).when(ImplicitOperations.mockOperation0).execute(any(), any());
+
+            doAnswer(invocationOnMock -> {
+                order.accumulateAndGet("2", String::concat);
+                return null;
+            }).when(ImplicitOperations.mockOperation1).execute(any(), any());
+
+            // act
+            extension.beforeEach(mockContext);
+
+            // assert
+            assertThat(order.get()).isEqualTo("12");
+        }
+
+        @Test
+        void shouldPreserveOrderOfMultiLevelOrderedOperations() throws Exception {
+            // arrange
+            doReturn(MultiLevelOrderedOperations.InnerClassMultiLevel.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(MultiLevelOrderedOperations.INNER_INSTANCE, mockContext);
+
+            Method method = Methods.class.getMethod("normalTest");
+            doReturn(method).when(mockContext).getRequiredTestMethod();
+            doReturn(MultiLevelOrderedOperations.INNER_INSTANCE).when(mockContext).getRequiredTestInstance();
 
             AtomicReference<String> order = new AtomicReference<>("");
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("0", String::concat);
                 return null;
-            }).when(OrderedOperations.mockOperation0).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.mockOperation0).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("1", String::concat);
                 return null;
-            }).when(OrderedOperations.InnerClass.mockOperation1).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.InnerClassMultiLevel.mockOperation1).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("2", String::concat);
                 return null;
-            }).when(OrderedOperations.INNER_INSTANCE.outer().mockOperation2).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.INNER_INSTANCE.outer().mockOperation2).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("3", String::concat);
                 return null;
-            }).when(OrderedOperations.INNER_INSTANCE.outer().mockOperation3).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.INNER_INSTANCE.outer().mockOperation3).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("4", String::concat);
                 return null;
-            }).when(OrderedOperations.mockOperation4).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.mockOperation4).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("6", String::concat);
                 return null;
-            }).when(OrderedOperations.INNER_INSTANCE.mockOperation6).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.INNER_INSTANCE.mockOperation6).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("7", String::concat);
                 return null;
-            }).when(OrderedOperations.INNER_INSTANCE.mockOperation7).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.INNER_INSTANCE.mockOperation7).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("8", String::concat);
                 return null;
-            }).when(OrderedOperations.INNER_INSTANCE.mockOperation8).execute(any(), any());
+            }).when(MultiLevelOrderedOperations.INNER_INSTANCE.mockOperation8).execute(any(), any());
 
             // act
             extension.beforeEach(mockContext);
@@ -437,7 +493,33 @@ class DbSetupExtensionTest {
         }
     }
 
-    static abstract class OrderedOperationsParent {
+    static class ExplicitOperations {
+        static final ExplicitOperations INSTANCE = new ExplicitOperations();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupOperation(order = 1)
+        private static Operation mockOperationForInsert = mock(Operation.class);
+
+        @DbSetupOperation(order = 0)
+        private static Operation mockOperationForDelete = mock(Operation.class);
+    }
+
+    static class ImplicitOperations {
+        static final ImplicitOperations INSTANCE = new ImplicitOperations();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupOperation
+        private static Operation mockOperation1 = mock(Operation.class);
+
+        @DbSetupOperation
+        private static Operation mockOperation0 = mock(Operation.class);
+    }
+
+    static abstract class MultiLevelOrderedOperationsParent {
         @DbSetupOperation(order = 0)
         protected static Operation mockOperation0 = mock(Operation.class);
 
@@ -445,7 +527,7 @@ class DbSetupExtensionTest {
         protected Operation mockOperation2 = mock(Operation.class);
     }
 
-    static abstract class OrderedOperationsInnerParent {
+    static abstract class MultiLevelOrderedOperationsInnerParent {
         @DbSetupOperation(order = 1)
         protected static Operation mockOperation1 = mock(Operation.class);
 
@@ -453,9 +535,9 @@ class DbSetupExtensionTest {
         protected Operation mockOperation6 = mock(Operation.class);
     }
 
-    static class OrderedOperations extends OrderedOperationsParent {
-        static final OrderedOperations INSTANCE = new OrderedOperations();
-        static final OrderedOperations.InnerClass INNER_INSTANCE = INSTANCE.new InnerClass();
+    static class MultiLevelOrderedOperations extends MultiLevelOrderedOperationsParent {
+        static final MultiLevelOrderedOperations INSTANCE = new MultiLevelOrderedOperations();
+        static final InnerClassMultiLevel INNER_INSTANCE = INSTANCE.new InnerClassMultiLevel();
 
         @DbSetupSource
         private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
@@ -466,28 +548,16 @@ class DbSetupExtensionTest {
         @DbSetupOperation(order = 3)
         private Operation mockOperation3 = mock(Operation.class);
 
-        class InnerClass extends OrderedOperationsInnerParent {
+        class InnerClassMultiLevel extends MultiLevelOrderedOperationsInnerParent {
             @DbSetupOperation(order = 7)
             private Operation mockOperation7 = mock(Operation.class);
 
             @DbSetupOperation(order = 8)
             private Operation mockOperation8 = mock(Operation.class);
 
-            private OrderedOperations outer() {
-                return OrderedOperations.this;
+            private MultiLevelOrderedOperations outer() {
+                return MultiLevelOrderedOperations.this;
             }
-        }
-
-        static void resetMocks() {
-            reset(mockDataSource,
-                    mockOperation0,
-                    InnerClass.mockOperation1,
-                    INNER_INSTANCE.outer().mockOperation2,
-                    INNER_INSTANCE.outer().mockOperation3,
-                    mockOperation4,
-                    INNER_INSTANCE.mockOperation6,
-                    INNER_INSTANCE.mockOperation7,
-                    INNER_INSTANCE.mockOperation8);
         }
     }
 }

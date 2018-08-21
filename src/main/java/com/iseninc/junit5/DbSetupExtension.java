@@ -18,7 +18,6 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.ninja_squad.dbsetup.Operations.sequenceOf;
-import static org.junit.platform.commons.support.AnnotationSupport.findAnnotation;
 import static org.junit.platform.commons.util.AnnotationUtils.findAnnotatedFields;
 import static org.junit.platform.commons.util.AnnotationUtils.isAnnotated;
 import static org.junit.platform.commons.util.ReflectionUtils.isStatic;
@@ -88,11 +87,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
             checkField(field, Operation.class, "@DbSetupOperation");
         }
 
-        dbSetupOperationElements.sort((field1, field2) -> {
-            DbSetupOperation dbSetupOperation1 = field1.getAnnotation(DbSetupOperation.class);
-            DbSetupOperation dbSetupOperation2 = field2.getAnnotation(DbSetupOperation.class);
-            return Integer.compare(dbSetupOperation1.order(), dbSetupOperation2.order());
-        });
+        dbSetupOperationElements.sort(Comparator.comparingInt(DbSetupExtension::getOperationOrder));
 
         return dbSetupOperationElements;
     }
@@ -153,5 +148,42 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
                         throw ExceptionUtils.throwAsUncheckedException(t);
                     }
                 });
+    }
+
+    private static int getOperationOrder(Field field) {
+        DbSetupOperation dbSetupOperation = field.getAnnotation(DbSetupOperation.class);
+        int order = dbSetupOperation.order();
+
+        if (order < 0) {
+            String fieldName = field.getName();
+            int lastInteger = getLastInt(fieldName);
+            if (lastInteger < 0) {
+                throw new IllegalArgumentException("No order specified and implicit order cannot be determined by " +
+                        "inspecting the field name");
+            }
+            else {
+                order = lastInteger;
+            }
+        }
+
+        return order;
+    }
+
+    private static int getLastInt(String line) {
+        int offset = line.length();
+        for (int i = line.length() - 1; i >= 0; i--) {
+            char c = line.charAt(i);
+            if (Character.isDigit(c)) {
+                offset--;
+            }
+            else {
+                if (offset == line.length()) {
+                    // No int at the end
+                    return -1;
+                }
+                return Integer.parseInt(line.substring(offset));
+            }
+        }
+        return Integer.parseInt(line.substring(offset));
     }
 }
