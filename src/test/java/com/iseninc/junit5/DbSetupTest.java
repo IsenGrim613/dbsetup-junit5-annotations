@@ -36,6 +36,7 @@ class DbSetupTest {
             .build();
 
     @Test
+    @DbSetupSkipNext
     void shouldHave1RowAtStart() throws Exception {
         // arrange
         Connection connection = DATA_SOURCE.getConnection();
@@ -58,6 +59,7 @@ class DbSetupTest {
         Operation insert3 = insertInto("My_Table").columns("primary_key", "my_value").values(2, "3").build();
 
         @Test
+        @DbSetupSkipNext
         void shouldHave2RowsAfter() throws Exception {
             // arrange
             Connection connection = DATA_SOURCE.getConnection();
@@ -72,6 +74,25 @@ class DbSetupTest {
 
             resultSet.next();
             assertThat(resultSet.getInt("total")).isEqualTo(2);
+        }
+
+        @Test
+        void shouldBeAbleToInsert() throws Exception {
+            // arrange
+            Connection connection = DATA_SOURCE.getConnection();
+            Statement statement = connection.createStatement();
+
+            // act
+            boolean result = statement.execute("insert into My_Table VALUES (3, '4')");
+
+            // assert
+            assertThat(result).isFalse();
+        }
+
+        @Test
+        @DbSetupSkipNext
+        void shouldStillHave2RowsAfter() throws Exception {
+            shouldHave2RowsAfter();
         }
     }
 }

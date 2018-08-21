@@ -79,29 +79,58 @@ class DbSetupExtensionTest {
     @Nested
     @TestInstance(TestInstance.Lifecycle.PER_CLASS)
     class BeforeEachCallback {
-        @ParameterizedTest
-        @MethodSource("createValidCombinations")
-        void shouldNotRunSetupIfMethodHasSkipAnnotation(Class<?> clazz, Object instance, Runnable reset, Runnable verify, Runnable verifyNoExecutions) throws Exception {
+        @Test
+        void shouldNotRunNextSetupIfMethodHasSkipNextAnnotation() throws Exception {
             // arrange
-            reset.run();
+            StaticFieldOperation.resetMocks();
 
-            doReturn(clazz).when(mockContext).getRequiredTestClass();
-            extension.postProcessTestInstance(instance, mockContext);
+            doReturn(StaticFieldOperation.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(StaticFieldOperation.INSTANCE, mockContext);
 
             Method method = Methods.class.getMethod("skipDbSetup");
             doReturn(method).when(mockContext).getRequiredTestMethod();
-            doReturn(instance).when(mockContext).getRequiredTestInstance();
+            doReturn(StaticFieldOperation.INSTANCE).when(mockContext).getRequiredTestInstance();
+
+            extension.beforeEach(mockContext);
+            StaticFieldOperation.verifyExecuted();
 
             // act
+            StaticFieldOperation.resetMocks();
+
+            method = Methods.class.getMethod("normalTest");
+            doReturn(method).when(mockContext).getRequiredTestMethod();
+
             extension.beforeEach(mockContext);
 
             // assert
-            verifyNoExecutions.run();
+            verify(StaticFieldOperation.mockDataSource, never()).getConnection();
+            verify(StaticFieldOperation.mockDataSource, never()).getConnection(any(), any());
+            verify(StaticFieldOperation.mockOperation, never()).execute(any(), any());
         }
+
+//        @ParameterizedTest
+//        @MethodSource("createValidCombinations")
+//        void shouldNotRunSetupIfMethodHasSkipAnnotation(Class<?> clazz, Object instance, Runnable reset, Runnable verify, Runnable verifyNoExecutions) throws Exception {
+//            // arrange
+//            reset.run();
+//
+//            doReturn(clazz).when(mockContext).getRequiredTestClass();
+//            extension.postProcessTestInstance(instance, mockContext);
+//
+//            Method method = Methods.class.getMethod("skipDbSetup");
+//            doReturn(method).when(mockContext).getRequiredTestMethod();
+//            doReturn(instance).when(mockContext).getRequiredTestInstance();
+//
+//            // act
+//            extension.beforeEach(mockContext);
+//
+//            // assert
+//            verifyNoExecutions.run();
+//        }
 
         @ParameterizedTest
         @MethodSource("createValidCombinations")
-        void shouldRunSetupIfMethodDoesNotHaveSkipAnnotation(Class<?> clazz, Object instance, Runnable reset, Runnable verify) throws Exception {
+        void shouldRunSetupForValidCombinations(Class<?> clazz, Object instance, Runnable reset, Runnable verify) throws Exception {
             // arrange
             reset.run();
 

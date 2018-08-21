@@ -1,6 +1,7 @@
 package com.iseninc.junit5;
 
 import com.ninja_squad.dbsetup.DbSetup;
+import com.ninja_squad.dbsetup.DbSetupTracker;
 import com.ninja_squad.dbsetup.destination.DataSourceDestination;
 import com.ninja_squad.dbsetup.operation.Operation;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -28,6 +29,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
 
     private Field dataSourceDestinationField;
     private List<Field> operationFields;
+    private DbSetupTracker dbSetupTracker = new DbSetupTracker();
 
     @Override
     public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws Exception {
@@ -37,12 +39,6 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
 
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        Method testMethod = context.getRequiredTestMethod();
-        if (isAnnotated(testMethod, DbSetupSkipNext.class)) {
-            LOGGER.log(Level.FINE, "Skipping db setup for {0}", testMethod.getName());
-            return;
-        }
-
         Object testInstance = context.getRequiredTestInstance();
         DataSource dataSource = getFieldValue(dataSourceDestinationField, testInstance);
         List<Operation> operations = new ArrayList<>();
@@ -52,7 +48,13 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
 
         DataSourceDestination dataSourceDestination = new DataSourceDestination(dataSource);
         DbSetup dbSetup = new DbSetup(dataSourceDestination, sequenceOf(operations));
-        dbSetup.launch();
+        dbSetupTracker.launchIfNecessary(dbSetup);
+
+        Method testMethod = context.getRequiredTestMethod();
+        if (isAnnotated(testMethod, DbSetupSkipNext.class)) {
+            LOGGER.log(Level.FINE, "Skipping next db setup for {0}", testMethod.getName());
+            dbSetupTracker.skipNextLaunch();
+        }
     }
 
     private static Field findDataSourceField(ExtensionContext context) {
