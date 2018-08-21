@@ -12,8 +12,7 @@ Do you write a lot of boilerplate code because of this?
 These are helper annotations that implement the JUnit5 extension API to help reduce boilerplate code when using 
 DbSetup. These are very simple annotations that directly map to DbSetup operations.
 
-### Annotations
-##### @DbSetup
+### @DbSetup
 This is the main annotation that tells JUnit5 to look for other DbSetup related annotations. Without this, the other 
 annotations will do nothing.
 
@@ -21,7 +20,7 @@ Requirements:
 
 * Annotation target: class only
 
-##### @DbSetupSource
+### @DbSetupSource
 This annotation tells DbSetup which data source to run operations on. 
 
 Requirements: 
@@ -31,7 +30,7 @@ Requirements:
 * Target can both be static or not
 * There can only be 1 target
 
-##### @DbSetupOperation
+### @DbSetupOperation
 DbSetup will launch the operations that are annotated with this. Because SQL scripts innately require to be ordered, 
 eg satisfying referential integrity, the operations will be launched in order. However, Java is a language that does 
 not preserve declaration order of fields thus we cannot use declared order as our implicit order (how nice would it 
@@ -52,12 +51,14 @@ The `@DbSetupOperation.order` variable takes precedence if both are available.
 * There can multiple targets
 * Targers must all be ordered either explicitly or implicitly
 
-##### @DbSetupSkipNext
+### @DbSetupSkipNext
 If this annotation is placed on a test method, DbSetup will not be launched for the next test. This is synonymous to 
 writing `dbTracker.skipNextLaunch();` in your test.
 
 * Annotation target: method only
 * Target must be a `@Test` otherwise it does nothing
+
+---
 
 ### Example code
 See [here](src/test/java/com/iseninc/junit5/DbSetupTest.java) for a concrete example on how to use the annotations.
