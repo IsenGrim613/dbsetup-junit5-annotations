@@ -5,3 +5,4 @@
 4. CONTRIBUTING.md
 5. Travis.ci
 6. Maven central
+7. @DbSetupDataSource name & tying @DbSetupOperation to a single source by name

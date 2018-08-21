@@ -283,7 +283,7 @@ class DbSetupExtensionTest {
     }
 
     static class Methods {
-        @DbSetupSkip
+        @DbSetupSkipNext
         public void skipDbSetup() {
 
         }

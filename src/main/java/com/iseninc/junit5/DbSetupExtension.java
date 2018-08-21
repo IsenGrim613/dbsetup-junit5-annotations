@@ -38,7 +38,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
         Method testMethod = context.getRequiredTestMethod();
-        if (isAnnotated(testMethod, DbSetupSkip.class)) {
+        if (isAnnotated(testMethod, DbSetupSkipNext.class)) {
             LOGGER.log(Level.FINE, "Skipping db setup for {0}", testMethod.getName());
             return;
         }

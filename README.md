@@ -16,20 +16,55 @@ annotations will do nothing.
 
 Requirements: 
 
-* Annotation target: class
+* Annotation target: class only
 
-##### @DbSetupSourceFactory
-This annotation tells DbSetup which data source to run operations on.
+##### @DbSetupSource
+This annotation tells DbSetup which data source to run operations on. 
 
 Requirements: 
 
-*  Annotation target: method or field
-* Must return or be of `javax.sql.DataSource` type  
-* Can be static or not
-* There can only be 1 @DbSetupSourceFactory
+* Annotation target: field only<sup>[#](#fields-only)</sup>
+* Target must return or be of `javax.sql.DataSource` type  
+* Target can both be static or not
+* There can only be 1 target
 
 ##### @DbSetupOperation
-DbSetup will launch the operations that are annotated with this. The launch sequence is ordered in the following way:
+DbSetup will launch the operations that are annotated with this. Because SQL scripts innately require to be ordered, 
+eg satisfying referential integrity, the operations will be launched in order. However, Java is a language that does 
+not preserve declaration order of fields thus we cannot use declared order as our implicit order (how nice would it 
+be if we could do so). 
 
-1. Hierarchically from the outermost class, and then
-1. Hierarchically from the deepest super class
+There are 2 ways to declare the order of the operation.
+
+1. Explicitly by setting the `order` variable
+    * Eg. `@DbSetupOperation(order = 0) Operation myOperation`
+2. Implicitly by post-pending your variable with the order number
+    * Eg. `@DbSetupOperation Operation myOperation0`
+    
+The `@DbSetupOperation.order` variable takes precedence if both are available.
+
+* Annotation target: field only<sup>[#](#fields-only)</sup>
+* Target must return or be of `com.ninja_squad.dbsetup.operation.Operation` type  
+* Target can both be static or not
+* There can multiple targets
+* Targers must all be ordered either explicitly or implicitly
+
+##### @DbSetupSkipNext
+If this annotation is placed on a test method, DbSetup will not be launched for the next test. This is synonymous to 
+writing `dbTracker.skipNextLaunch();` in your test.
+
+* Annotation target: method only
+* Target must be a `@Test` otherwise it does nothing
+
+---
+
+<a name="fields-only">\#</a>: The reason why only fields are supported is to prevent unintentional code that does not 
+work, like this:
+```
+@DbSetupSource
+static DataSource dataSource() {
+    return new DataSource();
+}
+```
+
+The code will compile but every operation will be run on a different data source and is very likely to be incorrect.  
