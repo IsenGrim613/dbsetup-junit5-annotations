@@ -7,6 +7,7 @@ Do you write a lot of boilerplate code because of this?
 # Introducing JUnit5 extensions for DbSetup
 
 [![Build Status](https://travis-ci.org/IsenGrim613/junit5-dbsetup-annotations.svg?branch=master)](https://travis-ci.org/IsenGrim613/junit5-dbsetup-annotations)
+[![codecov](https://codecov.io/gh/IsenGrim613/junit5-dbsetup-annotations/branch/master/graph/badge.svg)](https://codecov.io/gh/IsenGrim613/junit5-dbsetup-annotations)
 
 These are helper annotations that implement the JUnit5 extension API to help reduce boilerplate code when using 
 DbSetup. These are very simple annotations that directly map to DbSetup operations.
