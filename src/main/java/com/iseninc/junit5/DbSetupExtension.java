@@ -62,11 +62,11 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         List<Field> dbSetupSources = findAnnotatedFieldsInHierarchy(testClass, DbSetupSource.class);
 
         if (dbSetupSources.size() <= 0) {
-            throw new IllegalStateException("No @DbSetupSource found");
+            throw new IllegalArgumentException("No @DbSetupSource found");
         }
 
         if (dbSetupSources.size() > 1) {
-            throw new IllegalStateException("There can only be 1 @DbSetupSource");
+            throw new IllegalArgumentException("There can only be 1 @DbSetupSource");
         }
 
         Field field = dbSetupSources.get(0);
@@ -81,7 +81,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         List<Field> dbSetupOperationElements = findAnnotatedFieldsInHierarchy(testClass, DbSetupOperation.class);
 
         if (dbSetupOperationElements.size() <= 0) {
-            throw new IllegalStateException("No @DbSetupOperation found");
+            throw new IllegalArgumentException("No @DbSetupOperation found");
         }
 
         for (Field field : dbSetupOperationElements) {
@@ -96,7 +96,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
 
     private static void checkField(Field field, Class<?> returnType, String name) {
         if (!returnType.isAssignableFrom(field.getType())) {
-            throw new IllegalStateException(name + " should return an instance or subclass of " + returnType);
+            throw new IllegalArgumentException(name + " should return an instance or subclass of " + returnType);
         }
     }
 
@@ -127,7 +127,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         while (!elementDeclaringClass.isAssignableFrom(instance.getClass())) {
             Optional<Object> outerOption = getOuterInstance(instance);
             if (!outerOption.isPresent()) {
-                throw new IllegalStateException("Cannot map outer instance to outer methods found");
+                throw new IllegalArgumentException("Cannot map outer instance to outer methods found");
             }
 
             instance = outerOption.get();

@@ -42,7 +42,7 @@ class DbSetupExtensionTest {
             Throwable t = catchThrowable(() -> extension.postProcessTestInstance(instance, mockContext));
 
             // assert
-            assertThat(t).isInstanceOf(IllegalStateException.class);
+            assertThat(t).isInstanceOf(IllegalArgumentException.class);
         }
 
         @ParameterizedTest
@@ -70,9 +70,12 @@ class DbSetupExtensionTest {
 
         private Stream<Arguments> createInvalidCombinations() {
             return Stream.of(
-                    Arguments.of(NoFactory.class, NoFactory.INSTANCE),
-                    Arguments.of(MultipleFactories.class, MultipleFactories.INSTANCE),
-                    Arguments.of(NoOperations.class, NoOperations.INSTANCE));
+                    Arguments.of(NoDataSource.class, NoDataSource.INSTANCE),
+                    Arguments.of(WrongDataSource.class, WrongDataSource.INSTANCE),
+                    Arguments.of(MultipleDataSources.class, MultipleDataSources.INSTANCE),
+                    Arguments.of(NoOperations.class, NoOperations.INSTANCE),
+                    Arguments.of(WrongOperation.class, WrongOperation.INSTANCE),
+                    Arguments.of(NotOrderedOperations.class, NotOrderedOperations.INSTANCE));
         }
     }
 
@@ -108,26 +111,6 @@ class DbSetupExtensionTest {
             verify(StaticFieldOperation.mockOperation, never()).execute(any(), any());
         }
 
-//        @ParameterizedTest
-//        @MethodSource("createValidCombinations")
-//        void shouldNotRunSetupIfMethodHasSkipAnnotation(Class<?> clazz, Object instance, Runnable reset, Runnable verify, Runnable verifyNoExecutions) throws Exception {
-//            // arrange
-//            reset.run();
-//
-//            doReturn(clazz).when(mockContext).getRequiredTestClass();
-//            extension.postProcessTestInstance(instance, mockContext);
-//
-//            Method method = Methods.class.getMethod("skipDbSetup");
-//            doReturn(method).when(mockContext).getRequiredTestMethod();
-//            doReturn(instance).when(mockContext).getRequiredTestInstance();
-//
-//            // act
-//            extension.beforeEach(mockContext);
-//
-//            // assert
-//            verifyNoExecutions.run();
-//        }
-
         @ParameterizedTest
         @MethodSource("createValidCombinations")
         void shouldRunSetupForValidCombinations(Class<?> clazz, Object instance, Runnable reset, Runnable verify) throws Exception {
@@ -151,24 +134,24 @@ class DbSetupExtensionTest {
         @Test
         void shouldPreserveOrderOfExplicitOrderedOperations() throws Exception {
             // arrange
-            doReturn(ExplicitOperations.class).when(mockContext).getRequiredTestClass();
-            extension.postProcessTestInstance(ExplicitOperations.INSTANCE, mockContext);
+            doReturn(ExplicitOrderedOperations.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(ExplicitOrderedOperations.INSTANCE, mockContext);
 
             Method method = Methods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
-            doReturn(ExplicitOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
+            doReturn(ExplicitOrderedOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
 
             AtomicReference<String> order = new AtomicReference<>("");
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("1", String::concat);
                 return null;
-            }).when(ExplicitOperations.mockOperationForDelete).execute(any(), any());
+            }).when(ExplicitOrderedOperations.mockOperationForDelete).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("2", String::concat);
                 return null;
-            }).when(ExplicitOperations.mockOperationForInsert).execute(any(), any());
+            }).when(ExplicitOrderedOperations.mockOperationForInsert).execute(any(), any());
 
             // act
             extension.beforeEach(mockContext);
@@ -180,24 +163,24 @@ class DbSetupExtensionTest {
         @Test
         void shouldPreserveOrderOfImplicitOrderedOperations() throws Exception {
             // arrange
-            doReturn(ImplicitOperations.class).when(mockContext).getRequiredTestClass();
-            extension.postProcessTestInstance(ImplicitOperations.INSTANCE, mockContext);
+            doReturn(ImplicitOrderedOperations.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(ImplicitOrderedOperations.INSTANCE, mockContext);
 
             Method method = Methods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
-            doReturn(ImplicitOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
+            doReturn(ImplicitOrderedOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
 
             AtomicReference<String> order = new AtomicReference<>("");
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("1", String::concat);
                 return null;
-            }).when(ImplicitOperations.mockOperation0).execute(any(), any());
+            }).when(ImplicitOrderedOperations.mockOperation0).execute(any(), any());
 
             doAnswer(invocationOnMock -> {
                 order.accumulateAndGet("2", String::concat);
                 return null;
-            }).when(ImplicitOperations.mockOperation1).execute(any(), any());
+            }).when(ImplicitOrderedOperations.mockOperation1).execute(any(), any());
 
             // act
             extension.beforeEach(mockContext);
@@ -322,12 +305,19 @@ class DbSetupExtensionTest {
         }
     }
 
-    static class NoFactory {
-        static final NoFactory INSTANCE = new NoFactory();
+    static class NoDataSource {
+        static final NoDataSource INSTANCE = new NoDataSource();
     }
 
-    static class MultipleFactories {
-        static final MultipleFactories INSTANCE = new MultipleFactories();
+    static class WrongDataSource {
+        static final WrongDataSource INSTANCE = new WrongDataSource();
+
+        @DbSetupSource
+        private static String mockDataSource = "abcd1234";
+    }
+
+    static class MultipleDataSources {
+        static final MultipleDataSources INSTANCE = new MultipleDataSources();
 
         @DbSetupSource
         private static DataSource mockDataSource1 = mock(DataSource.class);
@@ -341,6 +331,16 @@ class DbSetupExtensionTest {
 
         @DbSetupSource
         private static DataSource mockDataSource = mock(DataSource.class);
+    }
+
+    static class WrongOperation {
+        static final WrongOperation INSTANCE = new WrongOperation();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupOperation
+        private static String mockOperation = "abcd1234";
     }
 
     static class StaticFieldFactory {
@@ -522,8 +522,21 @@ class DbSetupExtensionTest {
         }
     }
 
-    static class ExplicitOperations {
-        static final ExplicitOperations INSTANCE = new ExplicitOperations();
+    static class NotOrderedOperations {
+        static final NotOrderedOperations INSTANCE = new NotOrderedOperations();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupOperation(order = 1)
+        private static Operation mockOperationForInsert = mock(Operation.class);
+
+        @DbSetupOperation
+        private static Operation mockOperationForDelete = mock(Operation.class);
+    }
+
+    static class ExplicitOrderedOperations {
+        static final ExplicitOrderedOperations INSTANCE = new ExplicitOrderedOperations();
 
         @DbSetupSource
         private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
@@ -535,8 +548,8 @@ class DbSetupExtensionTest {
         private static Operation mockOperationForDelete = mock(Operation.class);
     }
 
-    static class ImplicitOperations {
-        static final ImplicitOperations INSTANCE = new ImplicitOperations();
+    static class ImplicitOrderedOperations {
+        static final ImplicitOrderedOperations INSTANCE = new ImplicitOrderedOperations();
 
         @DbSetupSource
         private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
