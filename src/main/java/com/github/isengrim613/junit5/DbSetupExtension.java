@@ -24,6 +24,17 @@ import static org.junit.platform.commons.util.AnnotationUtils.isAnnotated;
 import static org.junit.platform.commons.util.ReflectionUtils.isStatic;
 import static org.junit.platform.commons.util.ReflectionUtils.makeAccessible;
 
+/**
+ * The main processor for the extension.
+ *
+ * @see #postProcessTestInstance(Object, ExtensionContext)
+ * @see #beforeEach(ExtensionContext)
+ *
+ * @see com.github.isengrim613.junit5.DbSetup
+ * @see DbSetupSource
+ * @see DbSetupOperation
+ * @see DbSetupSkipNext
+ */
 public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCallback {
     private static final Logger LOGGER = Logger.getLogger(DbSetupExtension.class.getName());
 
@@ -31,12 +42,22 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
     private List<Field> operationFields;
     private DbSetupTracker dbSetupTracker = new DbSetupTracker();
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This method gathers and sorts the {@link DbSetupSource} and {@link DbSetupOperation}s for each test instance.
+     */
     @Override
     public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws Exception {
         dataSourceDestinationField = findDataSourceField(context);
         operationFields = findOperationFields(context);
     }
 
+    /**
+     * {@inheritDoc}
+     *
+     * <p>This method launches the {@link DbSetupOperation}s against the {@link DbSetupSource} before each test.
+     */
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
         Object testInstance = context.getRequiredTestInstance();
