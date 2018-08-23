@@ -38,6 +38,8 @@ be if we could do so).
 
 There are 2 ways to declare the order of the operation.
 
+Requirements: 
+
 1. Explicitly by setting the `order` variable
     * Eg. `@DbSetupOperation(order = 0) Operation myOperation`
 2. Implicitly by post-pending your variable with the order number
@@ -65,7 +67,7 @@ See [here](src/test/java/com/iseninc/junit5/DbSetupTest.java) for a concrete exa
 
 ---
 
-<a name="fields-only">\#</a>: The reason why only fields are supported is to prevent unintentional code that does not 
+<sup><a name="fields-only">\#</a></sup>: The reason why only fields are supported is to prevent unintentional code that does not 
 work, like this:
 ```
 @DbSetupSource
