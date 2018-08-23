@@ -44,13 +44,38 @@
         <url>https://github.com/isengrim613/junit5-dbsetup-annotations/issues</url>
     </issueManagement>
 
+    <ciManagement>
+        <system>travis</system>
+        <url>https://travis-ci.org/isengrim613/junit5-dbsetup-annotations</url>
+    </ciManagement>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>junit-releases-repo</id>
+            <name>Nexus Release Repository</name>
+            <url>https://oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+        <site>
+            <id>github.com/isengrim613/junit5-dbsetup-annotations</id>
+            <url>https://github.com/isengrim613/junit5-dbsetup-annotations</url>
+        </site>
+    </distributionManagement>
+
     <properties>
         <java.version>1.8</java.version>
+        <maven.version>3.0.4</maven.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
         <dbSetup.version>2.1.0</dbSetup.version>
         <junit5.jupiter.version>5.2.0</junit5.jupiter.version>
         <junit5.platform.version>1.2.0</junit5.platform.version>
+
+        <arguments />
+        <gpg.keyname>67893CC4</gpg.keyname>
     </properties>
 
     <dependencies>
@@ -105,6 +130,40 @@
     <build>
         <plugins>
             <plugin>
+                <artifactId>maven-enforcer-plugin</artifactId>
+                <version>1.4.1</version>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>enforce</goal>
+                        </goals>
+                        <configuration>
+                            <fail>true</fail>
+                            <rules>
+                                <requireMavenVersion>
+                                    <message>Current version of Maven required to build the project
+                                        should be ${project.prerequisites.maven}, or higher!
+                                    </message>
+                                    <version>[${maven.version},)</version>
+                                </requireMavenVersion>
+                                <requireJavaVersion>
+                                    <message>Current JDK version should be ${java.version}, or higher!</message>
+                                    <version>${java.version}</version>
+                                </requireJavaVersion>
+                                <requireNoRepositories>
+                                    <message>Best Practice is to never define repositories in pom.xml (use a repository
+                                        manager instead).
+                                    </message>
+                                </requireNoRepositories>
+                                <requireReleaseDeps>
+                                    <message>No Snapshots Dependencies Allowed!</message>
+                                </requireReleaseDeps>
+                            </rules>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
                 <version>3.7.0</version>
@@ -153,26 +212,98 @@
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-source-plugin</artifactId>
                 <version>3.0.1</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>jar-no-fork</goal>
-                        </goals>
-                    </execution>
-                </executions>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>3.0.1</version>
-                <executions>
-                    <execution>
-                        <goals>
-                            <goal>jar</goal>
-                        </goals>
-                    </execution>
-                </executions>
+                <configuration>
+                    <stylesheetfile>${basedir}/src/main/javadoc/stylesheet.css</stylesheetfile>
+                </configuration>
+            </plugin>
+            <!--<plugin>-->
+                <!--<groupId>org.apache.maven.plugins</groupId>-->
+                <!--<artifactId>maven-release-plugin</artifactId>-->
+                <!--<version>2.5.3</version>-->
+                <!--<configuration>-->
+                    <!--<mavenExecutorId>forked-path</mavenExecutorId>-->
+                    <!--<useReleaseProfile>false</useReleaseProfile>-->
+                    <!--<arguments>-Pgenerate-docs,release ${arguments}</arguments>-->
+                    <!--<tagNameFormat>v{project.version}</tagNameFormat>-->
+                <!--</configuration>-->
+            <!--</plugin>-->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <version>1.6</version>
+            </plugin>
+            <plugin>
+                <groupId>org.sonatype.plugins</groupId>
+                <artifactId>nexus-staging-maven-plugin</artifactId>
+                <version>1.6.8</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <serverId>ossrh</serverId>
+                    <nexusUrl>https://oss.sonatype.org/</nexusUrl>
+                    <autoReleaseAfterClose>true</autoReleaseAfterClose>
+                </configuration>
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <profile>
+            <id>sign</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-gpg-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>gpg-sign</id>
+                                <phase>verify</phase>
+                                <goals>
+                                    <goal>sign</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+        <profile>
+            <id>generate-docs</id>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-source-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-sources</id>
+                                <phase>prepare-package</phase>
+                                <goals>
+                                    <goal>jar-no-fork</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-javadoc-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>attach-javadoc</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>jar</goal>
+                                </goals>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>
