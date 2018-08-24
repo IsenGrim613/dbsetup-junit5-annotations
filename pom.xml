@@ -28,7 +28,7 @@
     <scm>
         <url>https://github.com/isengrim613/junit5-dbsetup-annotations</url>
         <connection>scm:git:https://github.com/isengrim613/junit5-dbsetup-annotations.git</connection>
-        <developerConnection>scm:git:git@github.com:isengrim613/junit5-dbsetup-annotations.git</developerConnection>
+        <developerConnection>scm:git:https://github.com/isengrim613/junit5-dbsetup-annotations.git</developerConnection>
     </scm>
 
     <developers>
