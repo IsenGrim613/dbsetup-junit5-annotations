@@ -8,6 +8,7 @@ Do you write a lot of boilerplate code because of this?
 
 [![Build Status](https://travis-ci.org/isengrim613/junit5-dbsetup-annotations.svg?branch=master)](https://travis-ci.org/isengrim613/junit5-dbsetup-annotations)
 [![codecov](https://codecov.io/gh/isengrim613/junit5-dbsetup-annotations/branch/master/graph/badge.svg)](https://codecov.io/gh/isengrim613/junit5-dbsetup-annotations)
+[![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.isengrim613/junit5-dbsetup-annotations/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.isengrim613/junit5-dbsetup-annotations)
 
 These are helper annotations that implement the JUnit5 extension API to help reduce boilerplate code when using 
 DbSetup. These are very simple annotations that directly map to DbSetup operations.
