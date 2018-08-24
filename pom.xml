@@ -73,9 +73,6 @@
         <dbSetup.version>2.1.0</dbSetup.version>
         <junit5.jupiter.version>5.2.0</junit5.jupiter.version>
         <junit5.platform.version>1.2.0</junit5.platform.version>
-
-        <arguments />
-        <gpg.keyname>67893CC4</gpg.keyname>
     </properties>
 
     <dependencies>
@@ -228,8 +225,8 @@
                 <configuration>
                     <mavenExecutorId>forked-path</mavenExecutorId>
                     <useReleaseProfile>false</useReleaseProfile>
-                    <arguments>-Pgenerate-docs,sign ${arguments}</arguments>
-                    <tagNameFormat>v{project.version}</tagNameFormat>
+                    <arguments>-Pgenerate-docs</arguments>
+                    <tagNameFormat>v@{project.version}</tagNameFormat>
                 </configuration>
             </plugin>
             <plugin>
