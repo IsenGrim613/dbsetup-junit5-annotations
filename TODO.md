@@ -4,5 +4,5 @@
 4. ~~Example code~~
 5. ~~Travis.ci~~
 5. ~~JavaDocs~~
-6. Maven central
+6. ~~Maven central~~
 7. @DbSetupDataSource name & tying @DbSetupOperation to a single source by name

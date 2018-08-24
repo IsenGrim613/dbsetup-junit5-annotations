@@ -1,4 +1,4 @@
-# 1.0.0 (SNAPSHOT)
+# 1.0.0 (2018-08-24)
 ### New features
 * Implemented annotations
     * `@DbSetup`
