@@ -21,5 +21,5 @@ cache:
 after_success:
   # Code coverage
   - bash <(curl -s https://codecov.io/bash)
-  - test $TRAVIS_TAG IS present && ./cd/before-deploy.sh
-  - test $TRAVIS_TAG IS present && ./cd/deploy.sh
+  - ./cd/before-deploy.sh
+  - ./cd/deploy.sh
