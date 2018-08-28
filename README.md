@@ -24,12 +24,14 @@ Requirements:
 ### @DbSetupSource
 This annotation tells DbSetup which data source to run operations on. 
 
+There can be multiple data sources, but they must all be uniquely named. Operations will also need to specify which 
+data source they are to be launched on.
+
 Requirements: 
 
 * Annotation target: field only<sup>[#](#fields-only)</sup>
 * Target must return or be of `javax.sql.DataSource` type  
 * Target can both be static or not
-* There can only be 1 target
 
 ### @DbSetupOperation
 DbSetup will launch the operations that are annotated with this. Because SQL scripts innately require to be ordered, 
@@ -37,9 +39,7 @@ eg satisfying referential integrity, the operations will be launched in order. H
 not preserve declaration order of fields thus we cannot use declared order as our implicit order (how nice would it 
 be if we could do so). 
 
-There are 2 ways to declare the order of the operation.
-
-Requirements: 
+There are 2 ways to declare the order of the operation. 
 
 1. Explicitly by setting the `order` variable
     * Eg. `@DbSetupOperation(order = 0) Operation myOperation`
@@ -47,6 +47,11 @@ Requirements:
     * Eg. `@DbSetupOperation Operation myOperation0`
     
 The `@DbSetupOperation.order` variable takes precedence if both are available.
+
+If there are multiple data sources, the `sources()` field can be used to define which data source that this operation 
+will be launched on. 
+
+Requirements:
 
 * Annotation target: field only<sup>[#](#fields-only)</sup>
 * Target must return or be of `com.ninja_squad.dbsetup.operation.Operation` type  

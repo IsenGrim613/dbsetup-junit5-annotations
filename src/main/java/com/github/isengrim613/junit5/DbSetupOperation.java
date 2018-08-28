@@ -38,6 +38,9 @@ import java.lang.annotation.Target;
  * <p>In the case where both implicit and explicit orders are defined, explicit order will take precedence. If neither
  * are defined, a runtime exception will be thrown when parsing for the operations.
  *
+ * <p>If there are multiple data sources, the {@link #sources()} field can be used to define which data source this
+ * operation will be launched on.
+ *
  * <p>Only fields are allowed because of the same reason why only fields are allowed for {@link DbSetupSource}.
  * Although this is less of an issue for operations as they are only used once, it is still good programming practice
  * to make sure the operation is only instantiated once.
@@ -54,4 +57,18 @@ public @interface DbSetupOperation {
      * @return The order of the annotated operation
      */
     int order() default -1;
+
+    /**
+     * This parameter defines the {@link DbSetupSource}s that this operation will be launched on.
+     *
+     * <p>The data sources will be referenced by {@link DbSetupSource#name()}. If a unknown data source name is
+     * referenced, an exception will be thrown during parsing. Declaring duplicated data source names will be resolved
+     * into 1 reference.
+     *
+     * <p>If there is only 1 data source, this parameter can be left blank. It's default value already includes the
+     * default data source.
+     *
+     * @return DataSource names that this operation will be launched on
+     */
+    String[] sources() default { "DEFAULT" };
 }

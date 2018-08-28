@@ -6,8 +6,10 @@ import java.lang.annotation.RetentionPolicy;
 import java.lang.annotation.Target;
 
 /**
- * <p>When a test does not modify the DataSource in anyway, this annotation can be added to the test method to tell
+ * When a test does not modify the DataSource in anyway, this annotation can be added to the test method to tell
  * {@link DbSetup} not to launch for the next test.
+ *
+ * <p>This will skip all launches for all data sources if there are multiple.
  *
  * <p>This annotation is not necessary and is only for improving performance.
  */
