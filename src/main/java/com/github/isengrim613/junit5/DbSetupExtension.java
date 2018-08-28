@@ -38,9 +38,7 @@ import static org.junit.platform.commons.util.ReflectionUtils.makeAccessible;
 public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCallback {
     private static final Logger LOGGER = Logger.getLogger(DbSetupExtension.class.getName());
 
-    private Field dataSourceDestinationField;
-    private List<Field> operationFields;
-    private DbSetupTracker dbSetupTracker = new DbSetupTracker();
+    private List<DbSetupHolder> dbSetupHolders;
 
     /**
      * {@inheritDoc}
@@ -49,8 +47,36 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
      */
     @Override
     public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws Exception {
-        dataSourceDestinationField = findDataSourceField(context);
-        operationFields = findOperationFields(context);
+        Map<String, Field> dataSourceFields = findDataSourceFields(context);
+        LinkedHashMap<Field, String[]> operationFields = findOperationFields(context);
+
+        // make sure all operation's data sources exists
+        Set<String> operationDataSources = new HashSet<>();
+        for (String[] dataSources : operationFields.values()) {
+            operationDataSources.addAll(Arrays.asList(dataSources));
+        }
+
+        for (String operationDataSource : operationDataSources) {
+            if (!dataSourceFields.keySet().contains(operationDataSource)) {
+                throw new IllegalArgumentException("This data sources does not exist: " + operationDataSource);
+            }
+        }
+
+        // map operations to data sources
+        List<DbSetupHolder> holders = new ArrayList<>();
+        for (Map.Entry<String, Field> dataSourceEntry : dataSourceFields.entrySet()) {
+            List<Field> operationsForDataSource = new ArrayList<>();
+
+            for (Map.Entry<Field, String[]> operationEntry : operationFields.entrySet()) {
+                if (Arrays.asList(operationEntry.getValue()).contains(dataSourceEntry.getKey())) {
+                    operationsForDataSource.add(operationEntry.getKey());
+                }
+            }
+
+            holders.add(new DbSetupHolder(dataSourceEntry.getValue(), operationsForDataSource));
+        }
+
+        dbSetupHolders = holders;
     }
 
     /**
@@ -60,25 +86,12 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
      */
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        Object testInstance = context.getRequiredTestInstance();
-        DataSource dataSource = getFieldValue(dataSourceDestinationField, testInstance);
-        List<Operation> operations = new ArrayList<>();
-        for (Field field : operationFields) {
-            operations.add(getFieldValue(field, testInstance));
-        }
-
-        DataSourceDestination dataSourceDestination = new DataSourceDestination(dataSource);
-        DbSetup dbSetup = new DbSetup(dataSourceDestination, sequenceOf(operations));
-        dbSetupTracker.launchIfNecessary(dbSetup);
-
-        Method testMethod = context.getRequiredTestMethod();
-        if (isAnnotated(testMethod, DbSetupSkipNext.class)) {
-            LOGGER.log(Level.FINE, "Skipping next db setup for {0}", testMethod.getName());
-            dbSetupTracker.skipNextLaunch();
+        for (DbSetupHolder holder : dbSetupHolders) {
+            holder.launch(context);
         }
     }
 
-    private static Field findDataSourceField(ExtensionContext context) {
+    private static Map<String, Field> findDataSourceFields(ExtensionContext context) {
         Class<?> testClass = context.getRequiredTestClass();
         List<Field> dbSetupSources = findAnnotatedFieldsInHierarchy(testClass, DbSetupSource.class);
 
@@ -86,18 +99,23 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
             throw new IllegalArgumentException("No @DbSetupSource found");
         }
 
-        if (dbSetupSources.size() > 1) {
-            throw new IllegalArgumentException("There can only be 1 @DbSetupSource");
+        Map<String, Field> dbSetupSourcesMap = new HashMap<>();
+        for (Field field : dbSetupSources) {
+            makeAccessible(field);
+            checkField(field, DataSource.class, "@DbSetupSource");
+
+            DbSetupSource dataSourceAnnotation = field.getAnnotation(DbSetupSource.class);
+            String dataSourceName = dataSourceAnnotation.name();
+
+            if (dbSetupSourcesMap.put(dataSourceName, field) != null) {
+                throw new IllegalArgumentException("There is more than 1 @DbSetupSource named: " + dataSourceName);
+            }
         }
 
-        Field field = dbSetupSources.get(0);
-        makeAccessible(field);
-        checkField(field, DataSource.class, "@DbSetupSource");
-
-        return field;
+        return dbSetupSourcesMap;
     }
 
-    private static List<Field> findOperationFields(ExtensionContext context) {
+    private static LinkedHashMap<Field, String[]> findOperationFields(ExtensionContext context) {
         Class<?> testClass = context.getRequiredTestClass();
         List<Field> dbSetupOperationElements = findAnnotatedFieldsInHierarchy(testClass, DbSetupOperation.class);
 
@@ -105,14 +123,22 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
             throw new IllegalArgumentException("No @DbSetupOperation found");
         }
 
+        // we must sort it in a list first
+        dbSetupOperationElements.sort(Comparator.comparingInt(DbSetupExtension::getOperationOrder));
+
+        // because if we use TreeMaps(Comparator) to sort, duplicated sort entries will be lost
+        LinkedHashMap<Field, String[]> orderedMap = new LinkedHashMap<>();
         for (Field field : dbSetupOperationElements) {
             makeAccessible(field);
             checkField(field, Operation.class, "@DbSetupOperation");
+
+            DbSetupOperation operationAnnotation = field.getAnnotation(DbSetupOperation.class);
+            String[] dataSources = operationAnnotation.sources();
+
+            orderedMap.put(field, dataSources);
         }
 
-        dbSetupOperationElements.sort(Comparator.comparingInt(DbSetupExtension::getOperationOrder));
-
-        return dbSetupOperationElements;
+        return orderedMap;
     }
 
     private static void checkField(Field field, Class<?> returnType, String name) {
@@ -208,5 +234,41 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
             }
         }
         return Integer.parseInt(line.substring(offset));
+    }
+
+    private static class DbSetupHolder {
+        private Field dataSourceDestinationField;
+        private List<Field> operationFields;
+        private DbSetupTracker dbSetupTracker;
+
+        public DbSetupHolder(Field dataSourceDestinationField, List<Field> operationFields) {
+            this.dataSourceDestinationField = dataSourceDestinationField;
+            this.operationFields = operationFields;
+            this.dbSetupTracker = new DbSetupTracker();
+        }
+
+        public void launch(ExtensionContext context) throws Exception {
+            if (operationFields.isEmpty()) {
+                return;
+            }
+
+            Object testInstance = context.getRequiredTestInstance();
+
+            DataSource dataSource = getFieldValue(dataSourceDestinationField, testInstance);
+            List<Operation> operations = new ArrayList<>();
+            for (Field field : operationFields) {
+                operations.add(getFieldValue(field, testInstance));
+            }
+
+            DataSourceDestination dataSourceDestination = new DataSourceDestination(dataSource);
+            DbSetup dbSetup = new DbSetup(dataSourceDestination, sequenceOf(operations));
+            dbSetupTracker.launchIfNecessary(dbSetup);
+
+            Method testMethod = context.getRequiredTestMethod();
+            if (isAnnotated(testMethod, DbSetupSkipNext.class)) {
+                LOGGER.log(Level.FINE, "Skipping next db setup for {0}", testMethod.getName());
+                dbSetupTracker.skipNextLaunch();
+            }
+        }
     }
 }

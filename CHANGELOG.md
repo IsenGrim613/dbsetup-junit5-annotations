@@ -1,4 +1,4 @@
-# 1.0.1 (SNAPSHOT)
+# 1.1.0 (SNAPSHOT)
 ### New features
 * Support multiple data sources
     * `DbSetupSource::name`

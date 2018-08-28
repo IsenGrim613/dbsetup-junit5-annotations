@@ -43,6 +43,7 @@ class DbSetupExtensionTest {
 
             // assert
             assertThat(t).isInstanceOf(IllegalArgumentException.class);
+            t.printStackTrace();
         }
 
         @ParameterizedTest
@@ -65,16 +66,18 @@ class DbSetupExtensionTest {
                     Arguments.of(StaticFieldOperation.class, StaticFieldOperation.INSTANCE),
                     Arguments.of(InstanceFieldOperation.class, InstanceFieldOperation.INSTANCE),
                     Arguments.of(MixedOperation.class, MixedOperation.INSTANCE),
-                    Arguments.of(InnerOperations.class, InnerOperations.INSTANCE));
+                    Arguments.of(InnerOperations.class, InnerOperations.INSTANCE),
+                    Arguments.of(MultipleDataSources.class, MultipleDataSources.INSTANCE));
         }
 
         private Stream<Arguments> createInvalidCombinations() {
             return Stream.of(
                     Arguments.of(NoDataSource.class, NoDataSource.INSTANCE),
                     Arguments.of(WrongDataSource.class, WrongDataSource.INSTANCE),
-                    Arguments.of(MultipleDataSources.class, MultipleDataSources.INSTANCE),
+                    Arguments.of(NonUniqueDataSources.class, NonUniqueDataSources.INSTANCE),
                     Arguments.of(NoOperations.class, NoOperations.INSTANCE),
                     Arguments.of(WrongOperation.class, WrongOperation.INSTANCE),
+                    Arguments.of(OperationWithNoSource.class, OperationWithNoSource.INSTANCE),
                     Arguments.of(NotOrderedOperations.class, NotOrderedOperations.INSTANCE));
         }
     }
@@ -85,30 +88,28 @@ class DbSetupExtensionTest {
         @Test
         void shouldNotRunNextSetupIfMethodHasSkipNextAnnotation() throws Exception {
             // arrange
-            StaticFieldOperation.resetMocks();
+            MultipleDataSources.resetMocks();
 
-            doReturn(StaticFieldOperation.class).when(mockContext).getRequiredTestClass();
-            extension.postProcessTestInstance(StaticFieldOperation.INSTANCE, mockContext);
+            doReturn(MultipleDataSources.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(MultipleDataSources.INSTANCE, mockContext);
 
-            Method method = Methods.class.getMethod("skipDbSetup");
+            Method method = TestMethods.class.getMethod("skipDbSetup");
             doReturn(method).when(mockContext).getRequiredTestMethod();
-            doReturn(StaticFieldOperation.INSTANCE).when(mockContext).getRequiredTestInstance();
+            doReturn(MultipleDataSources.INSTANCE).when(mockContext).getRequiredTestInstance();
 
             extension.beforeEach(mockContext);
-            StaticFieldOperation.verifyExecuted();
+            MultipleDataSources.verifyExecuted();
 
             // act
-            StaticFieldOperation.resetMocks();
+            MultipleDataSources.resetMocks();
 
-            method = Methods.class.getMethod("normalTest");
+            method = TestMethods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
 
             extension.beforeEach(mockContext);
 
             // assert
-            verify(StaticFieldOperation.mockDataSource, never()).getConnection();
-            verify(StaticFieldOperation.mockDataSource, never()).getConnection(any(), any());
-            verify(StaticFieldOperation.mockOperation, never()).execute(any(), any());
+            MultipleDataSources.verifyNotExecuted();
         }
 
         @ParameterizedTest
@@ -120,7 +121,7 @@ class DbSetupExtensionTest {
             doReturn(clazz).when(mockContext).getRequiredTestClass();
             extension.postProcessTestInstance(instance, mockContext);
 
-            Method method = Methods.class.getMethod("normalTest");
+            Method method = TestMethods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
             doReturn(instance).when(mockContext).getRequiredTestInstance();
 
@@ -137,7 +138,7 @@ class DbSetupExtensionTest {
             doReturn(ExplicitOrderedOperations.class).when(mockContext).getRequiredTestClass();
             extension.postProcessTestInstance(ExplicitOrderedOperations.INSTANCE, mockContext);
 
-            Method method = Methods.class.getMethod("normalTest");
+            Method method = TestMethods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
             doReturn(ExplicitOrderedOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
 
@@ -166,7 +167,7 @@ class DbSetupExtensionTest {
             doReturn(ImplicitOrderedOperations.class).when(mockContext).getRequiredTestClass();
             extension.postProcessTestInstance(ImplicitOrderedOperations.INSTANCE, mockContext);
 
-            Method method = Methods.class.getMethod("normalTest");
+            Method method = TestMethods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
             doReturn(ImplicitOrderedOperations.INSTANCE).when(mockContext).getRequiredTestInstance();
 
@@ -195,7 +196,7 @@ class DbSetupExtensionTest {
             doReturn(MultiLevelOrderedOperations.InnerClassMultiLevel.class).when(mockContext).getRequiredTestClass();
             extension.postProcessTestInstance(MultiLevelOrderedOperations.INNER_INSTANCE, mockContext);
 
-            Method method = Methods.class.getMethod("normalTest");
+            Method method = TestMethods.class.getMethod("normalTest");
             doReturn(method).when(mockContext).getRequiredTestMethod();
             doReturn(MultiLevelOrderedOperations.INNER_INSTANCE).when(mockContext).getRequiredTestInstance();
 
@@ -248,6 +249,25 @@ class DbSetupExtensionTest {
             assertThat(order.get()).isEqualTo("01234678");
         }
 
+        @Test
+        void shouldRunOperationAgainstDefinedSources() throws Exception {
+            // arrange
+            MultipleDataSources.resetMocks();
+
+            doReturn(MultipleDataSources.class).when(mockContext).getRequiredTestClass();
+            extension.postProcessTestInstance(MultipleDataSources.INSTANCE, mockContext);
+
+            Method method = TestMethods.class.getMethod("normalTest");
+            doReturn(method).when(mockContext).getRequiredTestMethod();
+            doReturn(MultipleDataSources.INSTANCE).when(mockContext).getRequiredTestInstance();
+
+            // act
+            extension.beforeEach(mockContext);
+
+            // assert
+            MultipleDataSources.verifyExecuted();
+        }
+
         private Stream<Arguments> createValidCombinations() {
             return Stream.of(
                     createArguments(StaticFieldFactory.class),
@@ -255,6 +275,7 @@ class DbSetupExtensionTest {
                     createArguments(StaticFieldOperation.class),
                     createArguments(InstanceFieldOperation.class),
                     createArguments(MixedOperation.class),
+                    createArguments(MultipleDataSources.class),
                     Arguments.of(InnerOperations.InnerClass.class, InnerOperations.INNER_INSTANCE, (Runnable) InnerOperations::resetMocks, (Runnable) InnerOperations::verifyExecuted, (Runnable) InnerOperations::verifyNotExecuted));
         }
 
@@ -294,7 +315,7 @@ class DbSetupExtensionTest {
         }
     }
 
-    static class Methods {
+    static class TestMethods {
         @DbSetupSkipNext
         public void skipDbSetup() {
 
@@ -307,6 +328,9 @@ class DbSetupExtensionTest {
 
     static class NoDataSource {
         static final NoDataSource INSTANCE = new NoDataSource();
+
+        @DbSetupOperation
+        private Operation mockOperation1 = mock(Operation.class);
     }
 
     static class WrongDataSource {
@@ -314,16 +338,22 @@ class DbSetupExtensionTest {
 
         @DbSetupSource
         private static String mockDataSource = "abcd1234";
+
+        @DbSetupOperation
+        private Operation mockOperation1 = mock(Operation.class);
     }
 
-    static class MultipleDataSources {
-        static final MultipleDataSources INSTANCE = new MultipleDataSources();
+    static class NonUniqueDataSources {
+        static final NonUniqueDataSources INSTANCE = new NonUniqueDataSources();
 
         @DbSetupSource
         private static DataSource mockDataSource1 = mock(DataSource.class);
 
         @DbSetupSource
         private static DataSource mockDataSource2 = mock(DataSource.class);
+
+        @DbSetupOperation
+        private Operation mockOperation1 = mock(Operation.class);
     }
 
     static class NoOperations {
@@ -340,7 +370,30 @@ class DbSetupExtensionTest {
         private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
-        private static String mockOperation = "abcd1234";
+        private static String mockOperation1 = "abcd1234";
+    }
+
+    static class OperationWithNoSource {
+        static final OperationWithNoSource INSTANCE = new OperationWithNoSource();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupOperation(sources = { "DEFAULT", "Some other source" })
+        private static Operation mockOperation1 = mock(Operation.class);
+    }
+
+    static class NotOrderedOperations {
+        static final NotOrderedOperations INSTANCE = new NotOrderedOperations();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupOperation(order = 1)
+        private static Operation mockOperationForInsert = mock(Operation.class);
+
+        @DbSetupOperation
+        private static Operation mockOperationForDelete = mock(Operation.class);
     }
 
     static class StaticFieldFactory {
@@ -350,20 +403,20 @@ class DbSetupExtensionTest {
         private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
-        private Operation mockOperation = mock(Operation.class);
+        private Operation mockOperation1 = mock(Operation.class);
 
         static void resetMocks() {
-            reset(mockDataSource, INSTANCE.mockOperation);
+            reset(mockDataSource, INSTANCE.mockOperation1);
         }
 
         static void verifyNotExecuted() {
-            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation);
+            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation1);
         }
 
         static void verifyExecuted() {
             try {
                 verify(mockDataSource).getConnection();
-                verify(INSTANCE.mockOperation).execute(eq(mockDataSource.getConnection()), any());
+                verify(INSTANCE.mockOperation1).execute(eq(mockDataSource.getConnection()), any());
             }
             catch (Exception e) {
                 throw new RuntimeException(e);
@@ -378,20 +431,20 @@ class DbSetupExtensionTest {
         private DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
-        private Operation mockOperation = mock(Operation.class);
+        private Operation mockOperation1 = mock(Operation.class);
 
         static void resetMocks() {
-            reset(INSTANCE.mockDataSource, INSTANCE.mockOperation);
+            reset(INSTANCE.mockDataSource, INSTANCE.mockOperation1);
         }
 
         static void verifyNotExecuted() {
-            verifyZeroInteractions(INSTANCE.mockDataSource, INSTANCE.mockOperation);
+            verifyZeroInteractions(INSTANCE.mockDataSource, INSTANCE.mockOperation1);
         }
 
         static void verifyExecuted() {
             try {
                 verify(INSTANCE.mockDataSource).getConnection();
-                verify(INSTANCE.mockOperation).execute(eq(INSTANCE.mockDataSource.getConnection()), any());
+                verify(INSTANCE.mockOperation1).execute(eq(INSTANCE.mockDataSource.getConnection()), any());
             }
             catch (Exception e) {
                 throw new RuntimeException(e);
@@ -406,20 +459,20 @@ class DbSetupExtensionTest {
         private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
-        private static Operation mockOperation = mock(Operation.class);
+        private static Operation mockOperation1 = mock(Operation.class);
 
         static void resetMocks() {
-            reset(mockDataSource, mockOperation);
+            reset(mockDataSource, mockOperation1);
         }
 
         static void verifyNotExecuted() {
-            verifyZeroInteractions(mockDataSource, mockOperation);
+            verifyZeroInteractions(mockDataSource, mockOperation1);
         }
 
         static void verifyExecuted() {
             try {
                 verify(mockDataSource).getConnection();
-                verify(mockOperation).execute(eq(mockDataSource.getConnection()), any());
+                verify(mockOperation1).execute(eq(mockDataSource.getConnection()), any());
             }
             catch (Exception e) {
                 throw new RuntimeException(e);
@@ -434,20 +487,20 @@ class DbSetupExtensionTest {
         private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
         @DbSetupOperation
-        private Operation mockOperation = mock(Operation.class);
+        private Operation mockOperation1 = mock(Operation.class);
 
         static void resetMocks() {
-            reset(mockDataSource, INSTANCE.mockOperation);
+            reset(mockDataSource, INSTANCE.mockOperation1);
         }
 
         static void verifyNotExecuted() {
-            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation);
+            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation1);
         }
 
         static void verifyExecuted() {
             try {
                 verify(mockDataSource).getConnection();
-                verify(INSTANCE.mockOperation).execute(eq(mockDataSource.getConnection()), any());
+                verify(INSTANCE.mockOperation1).execute(eq(mockDataSource.getConnection()), any());
             }
             catch (Exception e) {
                 throw new RuntimeException(e);
@@ -522,19 +575,6 @@ class DbSetupExtensionTest {
         }
     }
 
-    static class NotOrderedOperations {
-        static final NotOrderedOperations INSTANCE = new NotOrderedOperations();
-
-        @DbSetupSource
-        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
-
-        @DbSetupOperation(order = 1)
-        private static Operation mockOperationForInsert = mock(Operation.class);
-
-        @DbSetupOperation
-        private static Operation mockOperationForDelete = mock(Operation.class);
-    }
-
     static class ExplicitOrderedOperations {
         static final ExplicitOrderedOperations INSTANCE = new ExplicitOrderedOperations();
 
@@ -599,6 +639,44 @@ class DbSetupExtensionTest {
 
             private MultiLevelOrderedOperations outer() {
                 return MultiLevelOrderedOperations.this;
+            }
+        }
+    }
+
+    static class MultipleDataSources {
+        static final MultipleDataSources INSTANCE = new MultipleDataSources();
+
+        @DbSetupSource(name = "source1")
+        private static DataSource mockDataSource1 = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupSource(name = "source2")
+        private static DataSource mockDataSource2 = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupOperation(sources = { "source1", "source2" })
+        private Operation mockOperation1 = mock(Operation.class);
+
+        @DbSetupOperation(sources = { "source1" })
+        private Operation mockOperation2 = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(mockDataSource1, mockDataSource2, INSTANCE.mockOperation1, INSTANCE.mockOperation2);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource1, mockDataSource2, INSTANCE.mockOperation1, INSTANCE.mockOperation2);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource1).getConnection();
+                verify(mockDataSource2).getConnection();
+
+                verify(INSTANCE.mockOperation1).execute(eq(mockDataSource1.getConnection()), any());
+                verify(INSTANCE.mockOperation1).execute(eq(mockDataSource2.getConnection()), any());
+                verify(INSTANCE.mockOperation2).execute(eq(mockDataSource1.getConnection()), any());
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
             }
         }
     }
