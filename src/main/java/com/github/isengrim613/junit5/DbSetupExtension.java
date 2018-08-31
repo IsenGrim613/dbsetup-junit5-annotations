@@ -37,8 +37,7 @@ import static org.junit.platform.commons.util.ReflectionUtils.makeAccessible;
  */
 public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCallback {
     private static final Logger LOGGER = Logger.getLogger(DbSetupExtension.class.getName());
-
-    private List<DbSetupHolder> dbSetupHolders;
+    private static final String DB_SETUP_HOLDERS_KEY = "DB_SETUP_HOLDERS";
 
     /**
      * {@inheritDoc}
@@ -76,7 +75,16 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
             holders.add(new DbSetupHolder(dataSourceEntry.getValue(), operationsForDataSource));
         }
 
-        dbSetupHolders = holders;
+        getStore(context, testInstance).put(DB_SETUP_HOLDERS_KEY, holders);
+    }
+
+    private ExtensionContext.Store getStore(ExtensionContext context, Object testInstance) {
+        return context.getStore(ExtensionContext.Namespace.create(DbSetupExtension.class, testInstance));
+    }
+
+    private ExtensionContext.Store getStore(ExtensionContext context) {
+        Object testInstance = context.getRequiredTestInstance();
+        return context.getStore(ExtensionContext.Namespace.create(DbSetupExtension.class, testInstance));
     }
 
     /**
@@ -86,7 +94,10 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
      */
     @Override
     public void beforeEach(ExtensionContext context) throws Exception {
-        for (DbSetupHolder holder : dbSetupHolders) {
+        @SuppressWarnings("unchecked")
+        List<DbSetupHolder> holders = (List<DbSetupHolder>) getStore(context).get(DB_SETUP_HOLDERS_KEY);
+
+        for (DbSetupHolder holder : holders) {
             holder.launch(context);
         }
     }

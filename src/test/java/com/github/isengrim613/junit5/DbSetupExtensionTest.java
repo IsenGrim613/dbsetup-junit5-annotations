@@ -9,9 +9,12 @@ import org.junit.jupiter.api.extension.ExtensionContext;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.mockito.stubbing.Answer;
 
 import javax.sql.DataSource;
 import java.lang.reflect.Method;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Stream;
 
@@ -27,6 +30,15 @@ class DbSetupExtensionTest {
     void setup() {
         extension = new DbSetupExtension();
         mockContext = mock(ExtensionContext.class);
+
+        ExtensionContext.Store mockStore = mock(ExtensionContext.Store.class);
+        when(mockContext.getStore(any())).thenReturn(mockStore);
+
+        Map<Object, Object> store = new HashMap<>();
+        doAnswer((Answer<Object>) invocationOnMock -> store.put(invocationOnMock.getArgument(0), invocationOnMock.getArgument(1)))
+                .when(mockStore).put(any(), any());
+        doAnswer((Answer<Object>) invocationOnMock -> store.get(invocationOnMock.getArgument(0)))
+                .when(mockStore).get(any());
     }
 
     @Nested
