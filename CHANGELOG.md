@@ -1,4 +1,4 @@
-# 1.2.0 (SNAPSHOT)
+# 1.2.0 (2018-09-04)
 ### New features
 * Introduced `@DbSetupBinderConfiguration`
 
