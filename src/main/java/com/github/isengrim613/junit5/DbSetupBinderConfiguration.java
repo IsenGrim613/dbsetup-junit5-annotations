@@ -12,7 +12,7 @@ import java.lang.annotation.Target;
  * will be used.
  *
  * <p>The field type must be an implementation of {@link com.ninja_squad.dbsetup.bind.BinderConfiguration} and there
- * can only be 1 configuration per {@link @DbSetupDataSource}.
+ * can only be 1 configuration per {@link DbSetupSource}.
  *
  * <p>If there are multiple data sources, the {@link #sources()} field can be used to define which data source this
  * operation will be launched on.
