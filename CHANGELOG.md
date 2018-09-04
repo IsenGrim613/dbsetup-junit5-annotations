@@ -1,4 +1,4 @@
-# 1.1.1 (SNAPSHOT)
+# 1.1.1 (2018-09-04)
 ### Bug fixes
 * Because of the way `@Nested` test instances are created, `TestInstancePostProcessor::postProcessTestInstance` is 
   called twice, once for the outer class, once for the inner class. If the outer class does not have any 
