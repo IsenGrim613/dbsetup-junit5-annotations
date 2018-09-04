@@ -28,7 +28,7 @@ public class TestUtilities {
         assertThat(result).isFalse();
     }
 
-    public static void assertDataSourceHasRows(DataSource dataSource, Pair<Integer, String>... rows) throws Exception {
+    public static void assertDataSourceOnlyHasRows(DataSource dataSource, Pair<Integer, String>... rows) throws Exception {
         // arrange
         Connection connection = dataSource.getConnection();
         Statement statement = connection.createStatement();

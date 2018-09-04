@@ -1,3 +1,7 @@
+# 1.2.0 (SNAPSHOT)
+### New features
+* Introduced `@DbSetupBinderConfiguration`
+
 # 1.1.1 (2018-09-04)
 ### Bug fixes
 * Because of the way `@Nested` test instances are created, `TestInstancePostProcessor::postProcessTestInstance` is 

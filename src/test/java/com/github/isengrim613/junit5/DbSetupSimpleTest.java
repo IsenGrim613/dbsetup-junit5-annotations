@@ -7,13 +7,8 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Optional;
-import java.util.stream.Stream;
 
-import static com.github.isengrim613.junit5.TestUtilities.assertDataSourceHasRows;
+import static com.github.isengrim613.junit5.TestUtilities.assertDataSourceOnlyHasRows;
 import static com.ninja_squad.dbsetup.Operations.deleteAllFrom;
 import static com.ninja_squad.dbsetup.Operations.insertInto;
 import static com.ninja_squad.dbsetup.Operations.sequenceOf;
@@ -33,7 +28,7 @@ class DbSetupSimpleTest {
     @Nested
     class Inner {
         @DbSetupOperation
-        Operation insert3 = sequenceOf(
+        Operation insert = sequenceOf(
                 deleteAllFrom("My_Table"),
                 insertInto("My_Table")
                         .columns("primary_key", "my_value")
@@ -42,12 +37,33 @@ class DbSetupSimpleTest {
 
         @Test
         void shouldHaveRowsFromOperation_1() throws Exception {
-            assertDataSourceHasRows(DATA_SOURCE_1, Pair.of(2, "3"));
+            assertDataSourceOnlyHasRows(DATA_SOURCE_1, Pair.of(2, "3"));
         }
 
         @Test
         void shouldHaveRowsFromOperation_2() throws Exception {
-            assertDataSourceHasRows(DATA_SOURCE_1, Pair.of(2, "3"));
+            assertDataSourceOnlyHasRows(DATA_SOURCE_1, Pair.of(2, "3"));
+        }
+    }
+
+    @Nested
+    class Inner2 {
+        @DbSetupOperation
+        Operation insert = sequenceOf(
+                deleteAllFrom("My_Table"),
+                insertInto("My_Table")
+                        .columns("primary_key", "my_value")
+                        .values(3, "4")
+                        .build());
+
+        @Test
+        void shouldHaveRowsFromOperation_1() throws Exception {
+            assertDataSourceOnlyHasRows(DATA_SOURCE_1, Pair.of(3, "4"));
+        }
+
+        @Test
+        void shouldHaveRowsFromOperation_2() throws Exception {
+            assertDataSourceOnlyHasRows(DATA_SOURCE_1, Pair.of(3, "4"));
         }
     }
 }

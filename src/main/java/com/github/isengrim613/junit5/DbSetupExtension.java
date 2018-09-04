@@ -2,6 +2,8 @@ package com.github.isengrim613.junit5;
 
 import com.ninja_squad.dbsetup.DbSetup;
 import com.ninja_squad.dbsetup.DbSetupTracker;
+import com.ninja_squad.dbsetup.bind.BinderConfiguration;
+import com.ninja_squad.dbsetup.bind.DefaultBinderConfiguration;
 import com.ninja_squad.dbsetup.destination.DataSourceDestination;
 import com.ninja_squad.dbsetup.operation.Operation;
 import org.junit.jupiter.api.extension.BeforeEachCallback;
@@ -39,6 +41,19 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
     private static final Logger LOGGER = Logger.getLogger(DbSetupExtension.class.getName());
     private static final String DB_SETUP_HOLDERS_KEY = "DB_SETUP_HOLDERS";
 
+    private static void validateDataSourceExists(Map<String, Field> dataSourceFields, Map<Field, String[]> fields) {
+        Set<String> dataSourceSet = new HashSet<>();
+        for (String[] dataSources : fields.values()) {
+            dataSourceSet.addAll(Arrays.asList(dataSources));
+        }
+
+        for (String dataSource : dataSourceSet) {
+            if (!dataSourceFields.keySet().contains(dataSource)) {
+                throw new IllegalArgumentException("This data sources does not exist: " + dataSource);
+            }
+        }
+    }
+
     /**
      * {@inheritDoc}
      *
@@ -47,45 +62,43 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
     @Override
     public void postProcessTestInstance(Object testInstance, ExtensionContext context) throws Exception {
         Map<String, Field> dataSourceFields = findDataSourceFields(context);
+        Map<Field, String[]> binderConfigurationFields = findBinderConfigurationFields(context);
         LinkedHashMap<Field, String[]> operationFields = findOperationFields(context);
 
-        // make sure all operation's data sources exists
-        Set<String> operationDataSources = new HashSet<>();
-        for (String[] dataSources : operationFields.values()) {
-            operationDataSources.addAll(Arrays.asList(dataSources));
-        }
+        // make sure all binder configuration data sources exists
+        validateDataSourceExists(dataSourceFields, binderConfigurationFields);
 
-        for (String operationDataSource : operationDataSources) {
-            if (!dataSourceFields.keySet().contains(operationDataSource)) {
-                throw new IllegalArgumentException("This data sources does not exist: " + operationDataSource);
-            }
-        }
+        // make sure all operation's data sources exists
+        validateDataSourceExists(dataSourceFields, operationFields);
 
         // map operations to data sources
         List<DbSetupHolder> holders = new ArrayList<>();
         for (Map.Entry<String, Field> dataSourceEntry : dataSourceFields.entrySet()) {
-            List<Field> operationsForDataSource = new ArrayList<>();
+            List<Field> operationsForDataSourceFields = new ArrayList<>();
 
-            for (Map.Entry<Field, String[]> operationEntry : operationFields.entrySet()) {
-                if (Arrays.asList(operationEntry.getValue()).contains(dataSourceEntry.getKey())) {
-                    operationsForDataSource.add(operationEntry.getKey());
+            for (Map.Entry<Field, String[]> operationFieldEntry : operationFields.entrySet()) {
+                if (Arrays.asList(operationFieldEntry.getValue()).contains(dataSourceEntry.getKey())) {
+                    operationsForDataSourceFields.add(operationFieldEntry.getKey());
                 }
             }
 
-            LOGGER.log(Level.FINE, "Found {0} operations for {1} data source", new Object[] { operationDataSources.size(), dataSourceEntry.getKey() });
-            holders.add(new DbSetupHolder(dataSourceEntry.getValue(), operationsForDataSource));
+            Field binderConfigurationField = null;
+
+            for (Map.Entry<Field, String[]> binderConfigurationFieldEntry : binderConfigurationFields.entrySet()) {
+                if (Arrays.asList(binderConfigurationFieldEntry.getValue()).contains(dataSourceEntry.getKey())) {
+                    if (binderConfigurationField != null) {
+                        throw new IllegalArgumentException("There is more than 1 BinderConfiguration for DataSource: " + dataSourceEntry.getKey());
+                    }
+
+                    binderConfigurationField = binderConfigurationFieldEntry.getKey();
+                }
+            }
+
+            LOGGER.log(Level.FINE, "Found {0} operations for {1} data source", new Object[] { operationsForDataSourceFields.size(), dataSourceEntry.getKey() });
+            holders.add(new DbSetupHolder(dataSourceEntry.getValue(), operationsForDataSourceFields, binderConfigurationField));
         }
 
         getStore(context, testInstance).put(DB_SETUP_HOLDERS_KEY, holders);
-    }
-
-    private ExtensionContext.Store getStore(ExtensionContext context, Object testInstance) {
-        return context.getStore(ExtensionContext.Namespace.create(DbSetupExtension.class, testInstance));
-    }
-
-    private ExtensionContext.Store getStore(ExtensionContext context) {
-        Object testInstance = context.getRequiredTestInstance();
-        return context.getStore(ExtensionContext.Namespace.create(DbSetupExtension.class, testInstance));
     }
 
     /**
@@ -107,7 +120,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         Class<?> testClass = context.getRequiredTestClass();
         List<Field> dbSetupSources = findAnnotatedFieldsInHierarchy(testClass, DbSetupSource.class);
 
-        if (dbSetupSources.size() <= 0) {
+        if (dbSetupSources.isEmpty()) {
             throw new IllegalArgumentException("No @DbSetupSource found");
         }
 
@@ -127,11 +140,34 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         return dbSetupSourcesMap;
     }
 
+    private static Map<Field, String[]> findBinderConfigurationFields(ExtensionContext context) {
+        Class<?> testClass = context.getRequiredTestClass();
+        List<Field> dbSetupBinderConfigurationElements =
+                findAnnotatedFieldsInHierarchy(testClass, DbSetupBinderConfiguration.class);
+
+        Map<Field, String[]> result = new HashMap<>();
+        if (dbSetupBinderConfigurationElements.isEmpty()) {
+            return result;
+        }
+
+        for (Field field : dbSetupBinderConfigurationElements) {
+            makeAccessible(field);
+            checkField(field, BinderConfiguration.class, "@DbSetupBinderConfiguration");
+
+            DbSetupBinderConfiguration configurationAnnotation = field.getAnnotation(DbSetupBinderConfiguration.class);
+            String[] dataSources = configurationAnnotation.sources();
+
+            result.put(field, dataSources);
+        }
+
+        return result;
+    }
+
     private static LinkedHashMap<Field, String[]> findOperationFields(ExtensionContext context) {
         Class<?> testClass = context.getRequiredTestClass();
         List<Field> dbSetupOperationElements = findAnnotatedFieldsInHierarchy(testClass, DbSetupOperation.class);
 
-        if (dbSetupOperationElements.size() <= 0) {
+        if (dbSetupOperationElements.isEmpty()) {
             LOGGER.log(Level.FINE, "There are no @DbSetupOperation for {0}", new Object[] { testClass.getName() });
         }
 
@@ -151,6 +187,15 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         }
 
         return orderedMap;
+    }
+
+    private ExtensionContext.Store getStore(ExtensionContext context, Object testInstance) {
+        return context.getStore(ExtensionContext.Namespace.create(DbSetupExtension.class, testInstance));
+    }
+
+    private ExtensionContext.Store getStore(ExtensionContext context) {
+        Object testInstance = context.getRequiredTestInstance();
+        return context.getStore(ExtensionContext.Namespace.create(DbSetupExtension.class, testInstance));
     }
 
     private static void checkField(Field field, Class<?> returnType, String name) {
@@ -251,12 +296,14 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
     private static class DbSetupHolder {
         private Field dataSourceDestinationField;
         private List<Field> operationFields;
+        private Field binderConfigurationField;
         private DbSetupTracker dbSetupTracker;
 
-        public DbSetupHolder(Field dataSourceDestinationField, List<Field> operationFields) {
+        public DbSetupHolder(Field dataSourceDestinationField, List<Field> operationFields, Field binderConfigurationField) {
             this.dataSourceDestinationField = dataSourceDestinationField;
             this.operationFields = operationFields;
             this.dbSetupTracker = new DbSetupTracker();
+            this.binderConfigurationField = binderConfigurationField;
         }
 
         public void launch(ExtensionContext context) throws Exception {
@@ -273,8 +320,11 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
                 operations.add(getFieldValue(field, testInstance));
             }
 
+            BinderConfiguration binderConfiguration = binderConfigurationField != null ?
+                    getFieldValue(binderConfigurationField, testInstance) : DefaultBinderConfiguration.INSTANCE;
+
             DataSourceDestination dataSourceDestination = new DataSourceDestination(dataSource);
-            DbSetup dbSetup = new DbSetup(dataSourceDestination, sequenceOf(operations));
+            DbSetup dbSetup = new DbSetup(dataSourceDestination, sequenceOf(operations), binderConfiguration);
             dbSetupTracker.launchIfNecessary(dbSetup);
 
             Method testMethod = context.getRequiredTestMethod();

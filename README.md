@@ -66,6 +66,20 @@ writing `dbTracker.skipNextLaunch();` in your test.
 * Annotation target: method only
 * Target must be a `@Test` otherwise it does nothing
 
+### @DbSetupBinderConfiguration
+See [binder configuration](http://dbsetup.ninja-squad.com/user-guide.html#data-formats) for details on 
+`BinderConfiguration`.
+
+This optional annotation defines the binder configuration to use when running DbSetup.
+
+If there are multiple data sources, the `sources()` field can be used to define which data source that this operation 
+will be launched on. 
+
+* Annotation target: field only<sup>[#](#fields-only)</sup>
+* Target must be an implementation of `com.ninja_squad.dbsetup.bind.BinderConfiguration`  
+* Target can both be static or not static
+* There can only be at most a single target per data source
+
 ---
 
 ### Example code

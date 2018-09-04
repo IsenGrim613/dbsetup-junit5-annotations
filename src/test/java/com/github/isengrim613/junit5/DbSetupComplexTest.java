@@ -1,5 +1,8 @@
 package com.github.isengrim613.junit5;
 
+import com.ninja_squad.dbsetup.bind.Binder;
+import com.ninja_squad.dbsetup.bind.BinderConfiguration;
+import com.ninja_squad.dbsetup.bind.Binders;
 import com.ninja_squad.dbsetup.operation.Operation;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -7,6 +10,9 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
+
+import java.sql.ParameterMetaData;
+import java.sql.SQLException;
 
 import static com.github.isengrim613.junit5.TestUtilities.*;
 import static com.ninja_squad.dbsetup.Operations.deleteAllFrom;
@@ -19,6 +25,9 @@ class DbSetupComplexTest {
 
     @DbSetupSource(name = "source 2")
     private static final DataSource DATA_SOURCE_2;
+
+    @DbSetupBinderConfiguration(sources = "source 2")
+    private static final BinderConfiguration BINDER_CONFIGURATION_2 = new MySimpleBinderConfiguration();
 
     static {
         HikariConfig config1 = new HikariConfig();
@@ -60,8 +69,8 @@ class DbSetupComplexTest {
         @Test
         @DbSetupSkipNext
         void shouldHave2RowsAfter() throws Exception {
-            assertDataSourceHasRows(DATA_SOURCE_1, Pair.of(1, "2"), Pair.of(2, "3"));
-            assertDataSourceHasRows(DATA_SOURCE_2, Pair.of(11, "22"), Pair.of(2, "3"));
+            assertDataSourceOnlyHasRows(DATA_SOURCE_1, Pair.of(1, "2"), Pair.of(2, "3"));
+            assertDataSourceOnlyHasRows(DATA_SOURCE_2, Pair.of(11, "22"), Pair.of(2, "3"));
         }
 
         @Test
@@ -74,6 +83,14 @@ class DbSetupComplexTest {
         @DbSetupSkipNext
         void shouldStillHave2RowsAfter() throws Exception {
             shouldHave2RowsAfter();
+        }
+    }
+
+    private static class MySimpleBinderConfiguration implements BinderConfiguration {
+
+        @Override
+        public Binder getBinder(ParameterMetaData metadata, int param) throws SQLException {
+            return Binders.defaultBinder();
         }
     }
 }

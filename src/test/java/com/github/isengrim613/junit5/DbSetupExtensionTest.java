@@ -1,5 +1,6 @@
 package com.github.isengrim613.junit5;
 
+import com.ninja_squad.dbsetup.bind.BinderConfiguration;
 import com.ninja_squad.dbsetup.operation.Operation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Nested;
@@ -80,7 +81,8 @@ class DbSetupExtensionTest {
                     Arguments.of(InstanceFieldOperation.class, InstanceFieldOperation.INSTANCE),
                     Arguments.of(MixedOperation.class, MixedOperation.INSTANCE),
                     Arguments.of(InnerOperations.class, InnerOperations.INSTANCE),
-                    Arguments.of(MultipleDataSources.class, MultipleDataSources.INSTANCE));
+                    Arguments.of(MultipleDataSources.class, MultipleDataSources.INSTANCE),
+                    Arguments.of(SpecificBinderConfiguration.class, SpecificBinderConfiguration.INSTANCE));
         }
 
         private Stream<Arguments> createInvalidCombinations() {
@@ -90,7 +92,9 @@ class DbSetupExtensionTest {
                     Arguments.of(NonUniqueDataSources.class, NonUniqueDataSources.INSTANCE),
                     Arguments.of(WrongOperation.class, WrongOperation.INSTANCE),
                     Arguments.of(OperationWithNoSource.class, OperationWithNoSource.INSTANCE),
-                    Arguments.of(NotOrderedOperations.class, NotOrderedOperations.INSTANCE));
+                    Arguments.of(NotOrderedOperations.class, NotOrderedOperations.INSTANCE),
+                    Arguments.of(BinderConfigurationWithNoSource.class, BinderConfigurationWithNoSource.INSTANCE),
+                    Arguments.of(MultipleBinderConfigurationForSameSource.class, MultipleBinderConfigurationForSameSource.INSTANCE));
         }
     }
 
@@ -288,6 +292,7 @@ class DbSetupExtensionTest {
                     createArguments(InstanceFieldOperation.class),
                     createArguments(MixedOperation.class),
                     createArguments(MultipleDataSources.class),
+                    createArguments(SpecificBinderConfiguration.class),
                     Arguments.of(InnerOperations.InnerClass.class, InnerOperations.INNER_INSTANCE, (Runnable) InnerOperations::resetMocks, (Runnable) InnerOperations::verifyExecuted, (Runnable) InnerOperations::verifyNotExecuted));
         }
 
@@ -393,6 +398,35 @@ class DbSetupExtensionTest {
 
         @DbSetupOperation(sources = { "DEFAULT", "Some other source" })
         private static Operation mockOperation1 = mock(Operation.class);
+    }
+
+    static class BinderConfigurationWithNoSource {
+        static final BinderConfigurationWithNoSource INSTANCE = new BinderConfigurationWithNoSource();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupBinderConfiguration(sources = { "DEFAULT", "Some other source" })
+        private static BinderConfiguration mockBinderConfiguration = mock(BinderConfiguration.class);
+
+        @DbSetupOperation
+        private Operation mockOperation = mock(Operation.class);
+    }
+
+    static class MultipleBinderConfigurationForSameSource {
+        static final MultipleBinderConfigurationForSameSource INSTANCE = new MultipleBinderConfigurationForSameSource();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupBinderConfiguration
+        private static BinderConfiguration mockBinderConfiguration1 = mock(BinderConfiguration.class);
+
+        @DbSetupBinderConfiguration
+        private static BinderConfiguration mockBinderConfiguration2 = mock(BinderConfiguration.class);
+
+        @DbSetupOperation
+        private Operation mockOperation = mock(Operation.class);
     }
 
     static class NotOrderedOperations {
@@ -664,6 +698,12 @@ class DbSetupExtensionTest {
         @DbSetupSource(name = "source2")
         private static DataSource mockDataSource2 = mock(DataSource.class, RETURNS_DEEP_STUBS);
 
+        @DbSetupBinderConfiguration(sources = { "source1" })
+        private static BinderConfiguration mockBinderConfiguration1 = mock(BinderConfiguration.class);
+
+        @DbSetupBinderConfiguration(sources = { "source2" })
+        private static BinderConfiguration mockBinderConfiguration2 = mock(BinderConfiguration.class);
+
         @DbSetupOperation(sources = { "source1", "source2" })
         private Operation mockOperation1 = mock(Operation.class);
 
@@ -683,9 +723,40 @@ class DbSetupExtensionTest {
                 verify(mockDataSource1).getConnection();
                 verify(mockDataSource2).getConnection();
 
-                verify(INSTANCE.mockOperation1).execute(eq(mockDataSource1.getConnection()), any());
-                verify(INSTANCE.mockOperation1).execute(eq(mockDataSource2.getConnection()), any());
-                verify(INSTANCE.mockOperation2).execute(eq(mockDataSource1.getConnection()), any());
+                verify(INSTANCE.mockOperation1).execute(mockDataSource1.getConnection(), mockBinderConfiguration1);
+                verify(INSTANCE.mockOperation1).execute(mockDataSource2.getConnection(), mockBinderConfiguration2);
+                verify(INSTANCE.mockOperation2).execute(mockDataSource1.getConnection(), mockBinderConfiguration1);
+            }
+            catch (Exception e) {
+                throw new RuntimeException(e);
+            }
+        }
+    }
+
+    static class SpecificBinderConfiguration {
+        static final SpecificBinderConfiguration INSTANCE = new SpecificBinderConfiguration();
+
+        @DbSetupSource
+        private static DataSource mockDataSource = mock(DataSource.class, RETURNS_DEEP_STUBS);
+
+        @DbSetupBinderConfiguration
+        private static BinderConfiguration mockBinderConfiguration = mock(BinderConfiguration.class);
+
+        @DbSetupOperation
+        private Operation mockOperation = mock(Operation.class);
+
+        static void resetMocks() {
+            reset(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyNotExecuted() {
+            verifyZeroInteractions(mockDataSource, INSTANCE.mockOperation);
+        }
+
+        static void verifyExecuted() {
+            try {
+                verify(mockDataSource).getConnection();
+                verify(INSTANCE.mockOperation).execute(mockDataSource.getConnection(), mockBinderConfiguration);
             }
             catch (Exception e) {
                 throw new RuntimeException(e);
