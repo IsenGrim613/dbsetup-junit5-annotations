@@ -73,6 +73,7 @@ class DbSetupExtensionTest {
 
         private Stream<Arguments> createValidCombinations() {
             return Stream.of(
+                    Arguments.of(NoOperations.class, NoOperations.INSTANCE),
                     Arguments.of(StaticFieldFactory.class, StaticFieldFactory.INSTANCE),
                     Arguments.of(InstanceFieldFactory.class, InstanceFieldFactory.INSTANCE),
                     Arguments.of(StaticFieldOperation.class, StaticFieldOperation.INSTANCE),
@@ -87,7 +88,6 @@ class DbSetupExtensionTest {
                     Arguments.of(NoDataSource.class, NoDataSource.INSTANCE),
                     Arguments.of(WrongDataSource.class, WrongDataSource.INSTANCE),
                     Arguments.of(NonUniqueDataSources.class, NonUniqueDataSources.INSTANCE),
-                    Arguments.of(NoOperations.class, NoOperations.INSTANCE),
                     Arguments.of(WrongOperation.class, WrongOperation.INSTANCE),
                     Arguments.of(OperationWithNoSource.class, OperationWithNoSource.INSTANCE),
                     Arguments.of(NotOrderedOperations.class, NotOrderedOperations.INSTANCE));

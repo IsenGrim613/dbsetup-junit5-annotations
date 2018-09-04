@@ -1,3 +1,13 @@
+# 1.1.1 (SNAPSHOT)
+### Bug fixes
+* Because of the way `@Nested` test instances are created, `TestInstancePostProcessor::postProcessTestInstance` is 
+  called twice, once for the outer class, once for the inner class. If the outer class does not have any 
+  `@DbSetupOperations` the extension will throw an `IllegalArgumentException`, complaining about not finding any 
+  `@DbSetupOperations`. The simple fix is to allow cases where there is no `@DbSetupOperations`.   
+
+### Enhancements
+* Added debug JUL logging
+
 # 1.1.0 (2018-08-31)
 ### New features
 * Support multiple data sources

@@ -72,6 +72,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
                 }
             }
 
+            LOGGER.log(Level.FINE, "Found {0} operations for {1} data source", new Object[] { operationDataSources.size(), dataSourceEntry.getKey() });
             holders.add(new DbSetupHolder(dataSourceEntry.getValue(), operationsForDataSource));
         }
 
@@ -131,7 +132,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         List<Field> dbSetupOperationElements = findAnnotatedFieldsInHierarchy(testClass, DbSetupOperation.class);
 
         if (dbSetupOperationElements.size() <= 0) {
-            throw new IllegalArgumentException("No @DbSetupOperation found");
+            LOGGER.log(Level.FINE, "There are no @DbSetupOperation for {0}", new Object[] { testClass.getName() });
         }
 
         // we must sort it in a list first
@@ -259,6 +260,7 @@ public class DbSetupExtension implements TestInstancePostProcessor, BeforeEachCa
         }
 
         public void launch(ExtensionContext context) throws Exception {
+            LOGGER.log(Level.FINE, "Launching {0} operations", new Object[] { operationFields.size() });
             if (operationFields.isEmpty()) {
                 return;
             }

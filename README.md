@@ -30,8 +30,8 @@ data source they are to be launched on.
 Requirements: 
 
 * Annotation target: field only<sup>[#](#fields-only)</sup>
-* Target must return or be of `javax.sql.DataSource` type  
-* Target can both be static or not
+* Target must be of `javax.sql.DataSource` type  
+* Target can both be static or not static
 
 ### @DbSetupOperation
 DbSetup will launch the operations that are annotated with this. Because SQL scripts innately require to be ordered, 
@@ -54,10 +54,10 @@ will be launched on.
 Requirements:
 
 * Annotation target: field only<sup>[#](#fields-only)</sup>
-* Target must return or be of `com.ninja_squad.dbsetup.operation.Operation` type  
-* Target can both be static or not
+* Target must be of `com.ninja_squad.dbsetup.operation.Operation` type  
+* Target can both be static or not static
 * There can multiple targets
-* Targers must all be ordered either explicitly or implicitly
+* Targets must all be ordered either explicitly or implicitly
 
 ### @DbSetupSkipNext
 If this annotation is placed on a test method, DbSetup will not be launched for the next test. This is synonymous to 
@@ -69,7 +69,7 @@ writing `dbTracker.skipNextLaunch();` in your test.
 ---
 
 ### Example code
-See [here](src/test/java/com/iseninc/junit5/DbSetupTest.java) for a concrete example on how to use the annotations.
+See [here](src/test/java/com/github/isengrim613/junit5/DbSetupSimpleTest.java) for a concrete example on how to use the annotations.
 
 ---
 

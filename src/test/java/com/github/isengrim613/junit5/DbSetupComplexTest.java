@@ -7,19 +7,13 @@ import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 
 import javax.sql.DataSource;
-import java.sql.Connection;
-import java.sql.ResultSet;
-import java.sql.Statement;
-import java.util.Optional;
-import java.util.stream.Stream;
 
+import static com.github.isengrim613.junit5.TestUtilities.*;
 import static com.ninja_squad.dbsetup.Operations.deleteAllFrom;
 import static com.ninja_squad.dbsetup.Operations.insertInto;
-import static org.assertj.core.api.Assertions.assertThat;
 
 @DbSetup
-@SuppressWarnings("unchecked")
-class DbSetupTest {
+class DbSetupComplexTest {
     @DbSetupSource
     private static final DataSource DATA_SOURCE_1;
 
@@ -80,79 +74,6 @@ class DbSetupTest {
         @DbSetupSkipNext
         void shouldStillHave2RowsAfter() throws Exception {
             shouldHave2RowsAfter();
-        }
-    }
-
-    private static void insertRow(DataSource dataSource, Integer key, String value) throws Exception {
-        // arrange
-        Connection connection = dataSource.getConnection();
-        Statement statement = connection.createStatement();
-
-        // act
-        boolean result = statement.execute("insert into My_Table VALUES (" + key + ", '" + value + "')");
-
-        // assert
-        assertThat(result).isFalse();
-    }
-
-    private static void assertDataSourceHasRow(DataSource dataSource, Integer key, String value) throws Exception {
-        // arrange
-        Connection connection = dataSource.getConnection();
-        Statement statement = connection.createStatement();
-
-        // act
-        boolean result = statement.execute("select my_value from My_Table where primary_key = " + key);
-        ResultSet resultSet = statement.getResultSet();
-
-        // assert
-        assertThat(result).isTrue();
-
-        assertThat(resultSet.next()).isTrue();
-        assertThat(resultSet.getString("my_value")).isEqualTo(value);
-    }
-
-    private static void assertDataSourceHasRows(DataSource dataSource, Pair<Integer, String>... rows) throws Exception {
-        // arrange
-        Connection connection = dataSource.getConnection();
-        Statement statement = connection.createStatement();
-
-        // act
-        boolean result = statement.execute("select primary_key, my_value from My_Table");
-        ResultSet resultSet = statement.getResultSet();
-
-        // assert
-        assertThat(result).isTrue();
-
-        while(resultSet.next()) {
-            int key = resultSet.getInt("primary_key");
-
-            Optional<Pair<Integer, String>> first = Stream.of(rows)
-                    .filter(row -> row.getLeft() == key)
-                    .findFirst();
-
-            assertThat(first.isPresent()).isTrue();
-            assertThat(resultSet.getString("my_value")).isEqualTo(first.get().getRight());
-        }
-    }
-
-    private static class Pair<L, R> {
-        private L left;
-        private R right;
-
-        public L getLeft() {
-            return left;
-        }
-
-        public R getRight() {
-            return right;
-        }
-
-        private static <L, R> Pair<L, R> of(L left, R right) {
-            Pair<L, R> pair = new Pair<>();
-            pair.left = left;
-            pair.right = right;
-
-            return pair;
         }
     }
 }
