@@ -6,7 +6,7 @@ Do you write a lot of boilerplate code because of this?
 
 # Introducing JUnit5 extensions for DbSetup
 
-[![Build Status](https://travis-ci.org/isengrim613/junit5-dbsetup-annotations.svg?branch=master)](https://travis-ci.org/isengrim613/junit5-dbsetup-annotations)
+[![Build Status](https://travis-ci.org/isen-ng/junit5-dbsetup-annotations.svg?branch=master)](https://travis-ci.org/isen-ng/junit5-dbsetup-annotations)
 [![codecov](https://codecov.io/gh/isengrim613/junit5-dbsetup-annotations/branch/master/graph/badge.svg)](https://codecov.io/gh/isengrim613/junit5-dbsetup-annotations)
 [![Maven Central](https://maven-badges.herokuapp.com/maven-central/com.github.isengrim613/junit5-dbsetup-annotations/badge.svg)](https://maven-badges.herokuapp.com/maven-central/com.github.isengrim613/junit5-dbsetup-annotations)
 
